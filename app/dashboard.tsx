@@ -14,7 +14,6 @@ import Animated, {
 import { Svg, Circle, Path, G } from 'react-native-svg';
 
 import { Colors, Typography } from '../constants/Colors';
-import VoiceRecorder from '../components/VoiceRecorder';
 import { useAuth } from '../contexts/AuthContext';
 import { DashboardService, DashboardData } from '../lib/dashboardService';
 
@@ -34,18 +33,10 @@ interface QuickActionProps {
 }
 
 // Custom icons for quick actions
-const VoiceIcon = ({ size = 24 }: { size?: number }) => (
+const SMSIcon = ({ size = 24 }: { size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
     <Path
-      d="M12 1c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2s2-.9 2-2V3c0-1.1-.9-2-2-2z"
-      fill={Colors.primary}
-    />
-    <Path
-      d="M19 10v2c0 3.87-3.13 7-7 7s-7-3.13-7-7v-2h2v2c0 2.76 2.24 5 5 5s5-2.24 5-5v-2h2z"
-      fill={Colors.primary}
-    />
-    <Path
-      d="M11 21h2v2h-2z"
+      d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"
       fill={Colors.primary}
     />
   </Svg>
@@ -222,7 +213,6 @@ const QuickAction = ({ title, icon, onPress, delay }: QuickActionProps) => {
 export default function DashboardScreen() {
   const router = useRouter();
   const { user, userProfile } = useAuth();
-  const [isListening, setIsListening] = useState(false);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -233,7 +223,6 @@ export default function DashboardScreen() {
   const insightsOpacity = useSharedValue(0);
   const insightsTranslateY = useSharedValue(30);
   const progressValue = useSharedValue(0);
-  const voicePulse = useSharedValue(1);
 
   // Load dashboard data
   const loadDashboardData = async () => {
@@ -284,31 +273,8 @@ export default function DashboardScreen() {
       withTiming(0, { duration: 600, easing: Easing.out(Easing.quad) })
     );
 
-    // Voice button pulse animation
-    voicePulse.value = withRepeat(
-      withSequence(
-        withTiming(1.05, { duration: 1000, easing: Easing.inOut(Easing.quad) }),
-        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.quad) })
-      ),
-      -1,
-      false
-    );
   }, [dashboardData]);
 
-  const handleVoiceStart = () => {
-    setIsListening(true);
-    // Navigate to voice check-in screen
-    router.push('/voice-checkin');
-  };
-
-  const handleVoiceStop = () => {
-    setIsListening(false);
-  };
-
-  const handleVoiceTranscript = (text: string) => {
-    // Handle voice input
-    console.log('Voice transcript:', text);
-  };
 
   const handleViewTimeline = () => {
     router.push('/recovery-timeline');
@@ -376,9 +342,6 @@ export default function DashboardScreen() {
     width: `${progressValue.value * 100}%`,
   }));
 
-  const animatedVoiceStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: voicePulse.value }],
-  }));
 
   // Show loading state
   if (loading) {
@@ -410,15 +373,16 @@ export default function DashboardScreen() {
   }
 
   const quickActions = [
-    { title: 'Voice Check-in', icon: <VoiceIcon size={28} />, onPress: handleVoiceStart, delay: 2100 },
-    { title: 'View Timeline', icon: <TimelineIcon size={28} />, onPress: handleViewTimeline, delay: 2400 },
-    { title: 'Contact ASHA Worker', icon: <ASHAIcon size={28} />, onPress: handleContactASHA, delay: 2700 },
-    { title: 'Child Care', icon: <BabyIcon size={28} />, onPress: handleChildCare, delay: 3000 },
-    { title: 'Anonymous Q&A', icon: <AnonymousIcon size={28} />, onPress: handleAnonymousQuestions, delay: 3300 },
-    { title: 'Mother Health', icon: <HealthIcon size={28} />, onPress: handleMotherHealth, delay: 3600 },
-    { title: 'Language Settings', icon: <LanguageIcon size={28} />, onPress: handleMultilingualSettings, delay: 3900 },
-    { title: 'Family Network', icon: <FamilyIcon size={28} />, onPress: handleFamilyNetwork, delay: 4200 },
-    { title: 'Emergency', icon: <EmergencyIcon size={28} />, onPress: handleEmergency, delay: 4500 },
+    { title: 'SMS Demo', icon: <SMSIcon size={28} />, onPress: () => router.push('/sms-demo'), delay: 2100 },
+    { title: 'Register SMS', icon: <SMSIcon size={28} />, onPress: () => router.push('/sms-registration'), delay: 2400 },
+    { title: 'View Timeline', icon: <TimelineIcon size={28} />, onPress: handleViewTimeline, delay: 2700 },
+    { title: 'Contact ASHA Worker', icon: <ASHAIcon size={28} />, onPress: handleContactASHA, delay: 3000 },
+    { title: 'Child Care', icon: <BabyIcon size={28} />, onPress: handleChildCare, delay: 3300 },
+    { title: 'Anonymous Q&A', icon: <AnonymousIcon size={28} />, onPress: handleAnonymousQuestions, delay: 3600 },
+    { title: 'Mother Health', icon: <HealthIcon size={28} />, onPress: handleMotherHealth, delay: 3900 },
+    { title: 'Language Settings', icon: <LanguageIcon size={28} />, onPress: handleMultilingualSettings, delay: 4200 },
+    { title: 'Family Network', icon: <FamilyIcon size={28} />, onPress: handleFamilyNetwork, delay: 4500 },
+    { title: 'Emergency', icon: <EmergencyIcon size={28} />, onPress: handleEmergency, delay: 4800 },
   ];
 
   return (
@@ -449,8 +413,8 @@ export default function DashboardScreen() {
         <Animated.View style={[styles.insightsCard, animatedInsightsStyle]}>
           <Text style={styles.insightsTitle}>AI Recovery Insights</Text>
           
-          {/* Recovery Status */}
-          {dashboardData?.recoveryProgress.isActive && (
+          {/* Recovery Status - Only show if user has valid recovery data */}
+          {dashboardData?.recoveryProgress.isActive && dashboardData.recoveryProgress.percentage > 0 && (
             <View style={styles.recoveryStatus}>
               <Text style={styles.statusText}>
                 You're {dashboardData.recoveryProgress.percentage}% through your {dashboardData.recoveryProgress.phase.toLowerCase()}
@@ -458,6 +422,20 @@ export default function DashboardScreen() {
               <View style={styles.progressContainer}>
                 <View style={styles.progressBackground}>
                   <Animated.View style={[styles.progressFill, animatedProgressStyle]} />
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Show setup message if no valid recovery data */}
+          {(!dashboardData?.recoveryProgress.isActive || dashboardData.recoveryProgress.percentage === 0) && (
+            <View style={styles.recoveryStatus}>
+              <Text style={styles.statusText}>
+                Complete your profile to start tracking your recovery journey
+              </Text>
+              <View style={styles.progressContainer}>
+                <View style={styles.progressBackground}>
+                  <View style={[styles.progressFill, { width: '0%' }]} />
                 </View>
               </View>
             </View>
@@ -488,19 +466,15 @@ export default function DashboardScreen() {
             </View>
           )}
 
-          {/* Voice Check-in Button */}
-          <Animated.View style={animatedVoiceStyle}>
-            <TouchableOpacity style={styles.voiceButton} onPress={handleVoiceStart}>
-              <VoiceRecorder
-                onTranscript={handleVoiceTranscript}
-                onStart={handleVoiceStart}
-                onStop={handleVoiceStop}
-                isListening={isListening}
-                disabled={false}
-              />
-              <Text style={styles.voiceButtonText}>Speak to Aarogya</Text>
-            </TouchableOpacity>
-          </Animated.View>
+          {/* Complete Profile Button - Only show if user hasn't completed profile */}
+          {!dashboardData?.recoveryProgress.isActive && (
+            <View>
+              <TouchableOpacity style={styles.completeProfileButton} onPress={() => router.push('/onboarding')}>
+                <Text style={styles.completeProfileButtonText}>Complete Your Profile</Text>
+                <Text style={styles.completeProfileButtonSubtext}>Add your baby's information to get started</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </Animated.View>
 
         {/* Smart Alerts Section */}
@@ -673,15 +647,31 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     lineHeight: Typography.lineHeights.relaxed * Typography.sizes.sm,
   },
-  voiceButton: {
+  completeProfileButton: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    backgroundColor: Colors.primary,
+    borderRadius: 16,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  voiceButtonText: {
-    fontSize: Typography.sizes.base,
-    fontFamily: Typography.bodyMedium,
-    color: Colors.textPrimary,
-    marginTop: 8,
+  completeProfileButtonText: {
+    fontSize: Typography.sizes.lg,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.background,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  completeProfileButtonSubtext: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.background,
+    textAlign: 'center',
+    opacity: 0.9,
   },
   alertsSection: {
     marginBottom: 24,

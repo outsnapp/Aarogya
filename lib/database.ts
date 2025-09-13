@@ -76,9 +76,9 @@ export class DatabaseService {
       // Wait a short moment to ensure the profile is created in the database
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // 2. Create baby profile (only if baby data exists)
+      // 2. Create baby profile (only if baby DOB exists - required field)
       let babyData = null;
-      if (data.babyDob || data.babyHeight || data.babyWeight) {
+      if (data.babyDob && this.parseDate(data.babyDob)) {
         const { data: babyResult, error: babyError } = await supabase
           .from('baby_profiles')
           .insert({
@@ -98,7 +98,10 @@ export class DatabaseService {
           // Don't return error here as it's not critical for basic profile creation
         } else {
           babyData = babyResult;
+          console.log('✅ Baby profile created successfully:', babyResult);
         }
+      } else {
+        console.log('⚠️ No valid baby DOB provided, skipping baby profile creation');
       }
 
       // 3. Create emergency contacts

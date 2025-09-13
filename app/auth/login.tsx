@@ -42,7 +42,7 @@ const EyeIcon = ({ size = 20, closed = false }: { size?: number; closed?: boolea
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn, loading } = useAuth();
+  const { signIn, loading, onboardingCompleted } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -80,8 +80,12 @@ export default function LoginScreen() {
         console.error('Login error:', error);
         Alert.alert('Login Failed', error.message || 'Please check your credentials and try again.');
       } else {
-        // Success! Navigation will be handled by AuthContext
-        router.replace('/onboarding');
+        // Success! Navigate based on onboarding status
+        if (onboardingCompleted) {
+          router.replace('/dashboard');
+        } else {
+          router.replace('/onboarding');
+        }
       }
     } catch (error) {
       console.error('Login error:', error);

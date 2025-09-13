@@ -401,7 +401,7 @@ const AnimatedCard = ({ children, delay = 0, style = {} }: { children: React.Rea
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { user, updateProfile } = useAuth();
+  const { user, updateProfile, checkOnboardingStatus } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -556,6 +556,9 @@ export default function OnboardingScreen() {
         console.log('Onboarding data saved successfully:', data);
       }
 
+      // Check onboarding status after saving
+      await checkOnboardingStatus();
+
       // Show completion message with BMI info
       const bmiStatus = getBmiStatus(onboardingData.motherBmi);
       Alert.alert(
@@ -563,7 +566,7 @@ export default function OnboardingScreen() {
         `Setup complete! ${onboardingData.motherBmi > 0 ? `Your BMI is ${onboardingData.motherBmi} (${bmiStatus}).` : ''} We'll help you track your health journey.`,
         [{ 
           text: 'Continue', 
-          onPress: () => router.replace('/timeline-preview') 
+          onPress: () => router.replace('/dashboard') 
         }]
       );
     } catch (error) {

@@ -20,7 +20,7 @@ const { width, height } = Dimensions.get('window');
 
 export default function SplashScreen() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, onboardingCompleted } = useAuth();
   
   // Animation values
   const backgroundAnimation = useSharedValue(0);
@@ -29,8 +29,14 @@ export default function SplashScreen() {
 
   const navigateToNext = () => {
     if (user) {
-      // User is logged in, go to onboarding or dashboard
-      router.replace('/onboarding');
+      // User is logged in, check onboarding status
+      if (onboardingCompleted) {
+        // User has completed onboarding, go to dashboard
+        router.replace('/dashboard');
+      } else {
+        // User hasn't completed onboarding, go to onboarding
+        router.replace('/onboarding');
+      }
     } else {
       // User is not logged in, go to login
       router.replace('/auth/login');
@@ -49,7 +55,7 @@ export default function SplashScreen() {
 
       return () => clearTimeout(timer);
     }
-  }, [loading, user]);
+  }, [loading, user, onboardingCompleted]);
 
   const startAnimations = () => {
     // Background gradient shift

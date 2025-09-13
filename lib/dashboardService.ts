@@ -55,10 +55,36 @@ export class DashboardService {
   static calculateDaysSinceDelivery(babyProfile: any): number {
     if (!babyProfile?.date_of_birth) return 0;
     
-    const deliveryDate = new Date(babyProfile.date_of_birth);
-    const today = new Date();
-    const diffTime = today.getTime() - deliveryDate.getTime();
-    return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    try {
+      const deliveryDate = new Date(babyProfile.date_of_birth);
+      const today = new Date();
+      
+      // Check if the date is valid
+      if (isNaN(deliveryDate.getTime())) {
+        console.warn('Invalid delivery date:', babyProfile.date_of_birth);
+        return 0;
+      }
+      
+      // Check if delivery date is in the future (invalid)
+      if (deliveryDate > today) {
+        console.warn('Delivery date is in the future:', babyProfile.date_of_birth);
+        return 0;
+      }
+      
+      const diffTime = today.getTime() - deliveryDate.getTime();
+      const days = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      // Sanity check: delivery shouldn't be more than 2 years ago
+      if (days > 730) {
+        console.warn('Delivery date seems too old:', babyProfile.date_of_birth);
+        return 0;
+      }
+      
+      return days;
+    } catch (error) {
+      console.error('Error calculating days since delivery:', error);
+      return 0;
+    }
   }
 
   // Get recovery progress based on actual data
@@ -68,12 +94,28 @@ export class DashboardService {
     daysSinceDelivery: number;
     isActive: boolean;
   }> {
-    const daysSinceDelivery = this.calculateDaysSinceDelivery(babyProfile);
+    console.log('🔍 getRecoveryProgress called with:', { userId, babyProfile });
     
-    if (daysSinceDelivery <= 0) {
+    // If no baby profile exists, user hasn't completed onboarding properly
+    if (!babyProfile) {
+      console.log('❌ No baby profile found, returning Setup Required');
       return {
         percentage: 0,
-        phase: 'Pre-delivery',
+        phase: 'Setup Required',
+        daysSinceDelivery: 0,
+        isActive: false
+      };
+    }
+
+    const daysSinceDelivery = this.calculateDaysSinceDelivery(babyProfile);
+    console.log('📅 Days since delivery calculated:', daysSinceDelivery);
+    
+    // If no delivery date or invalid date, user hasn't completed onboarding
+    if (daysSinceDelivery <= 0 || !babyProfile.date_of_birth) {
+      console.log('❌ Invalid delivery date or days <= 0, returning Setup Required');
+      return {
+        percentage: 0,
+        phase: 'Setup Required',
         daysSinceDelivery: 0,
         isActive: false
       };
@@ -117,6 +159,8 @@ export class DashboardService {
       phase = 'Recovery Complete';
     }
 
+    console.log('✅ Recovery progress calculated:', { percentage, phase, daysSinceDelivery, deliveryType, expectedRecoveryDays });
+
     return {
       percentage,
       phase,
@@ -131,13 +175,22 @@ export class DashboardService {
     message: string;
     priority: 'low' | 'medium' | 'high';
   }> {
+    // If no baby profile, user needs to complete onboarding
+    if (!babyProfile) {
+      return {
+        title: 'Complete Your Profile',
+        message: 'Add your baby\'s information to get personalized health insights.',
+        priority: 'high'
+      };
+    }
+
     const daysSinceDelivery = this.calculateDaysSinceDelivery(babyProfile);
     
-    // If no delivery date, show onboarding focus
+    // If no delivery date or invalid date, show onboarding focus
     if (daysSinceDelivery <= 0) {
       return {
-        title: 'Welcome to Aarogya!',
-        message: 'Complete your profile setup to get personalized health insights.',
+        title: 'Complete Your Profile',
+        message: 'Add your baby\'s delivery date to start tracking your recovery journey.',
         priority: 'high'
       };
     }
@@ -200,10 +253,19 @@ export class DashboardService {
     message: string;
     daysUntil: number;
   } {
+    // If no baby profile, show setup message
+    if (!babyProfile) {
+      return {
+        title: 'Complete Your Profile',
+        message: 'Add your baby\'s information to see personalized milestones.',
+        daysUntil: 0
+      };
+    }
+
     if (daysSinceDelivery <= 0) {
       return {
-        title: 'Getting Started',
-        message: 'Complete your profile to see personalized milestones.',
+        title: 'Complete Your Profile',
+        message: 'Add your baby\'s delivery date to see personalized milestones.',
         daysUntil: 0
       };
     }
@@ -334,6 +396,8 @@ export class DashboardService {
   // Get comprehensive dashboard data
   static async getDashboardData(userId: string): Promise<DashboardData | null> {
     try {
+      console.log('🚀 getDashboardData called for userId:', userId);
+      
       // Get user profile
       const { data: userProfile, error: profileError } = await supabase
         .from('user_profiles')
@@ -346,6 +410,8 @@ export class DashboardService {
         return null;
       }
 
+      console.log('👤 User profile found:', userProfile);
+
       // Get baby profile
       const { data: babyProfile, error: babyError } = await supabase
         .from('baby_profiles')
@@ -357,11 +423,14 @@ export class DashboardService {
         console.error('Error fetching baby profile:', babyError);
       }
 
+      console.log('👶 Baby profile found:', babyProfile);
+
       // Get recent check-ins
       const recentCheckins = await this.getRecentCheckins(userId);
 
       // Get recovery progress
       const recoveryProgress = await this.getRecoveryProgress(userId, babyProfile);
+      console.log('📊 Recovery progress calculated:', recoveryProgress);
 
       // Get today's focus
       const todayFocus = await this.getTodayFocus(userId, babyProfile, recentCheckins);

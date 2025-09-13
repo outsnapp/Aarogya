@@ -7,11 +7,13 @@ interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
+  onboardingCompleted: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<{ error: any }>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: any }>;
   refreshProfile: () => Promise<void>;
+  checkOnboardingStatus: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,6 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 
   useEffect(() => {
     // Get initial session
@@ -62,12 +65,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (error && error.code !== 'PGRST116') {
         console.error('Error fetching user profile:', error);
+        setOnboardingCompleted(false);
         return;
       }
 
       setUserProfile(data);
+      
+      // Check if onboarding is completed based on profile data
+      if (data) {
+        const isCompleted = checkIfOnboardingCompleted(data);
+        setOnboardingCompleted(isCompleted);
+      } else {
+        setOnboardingCompleted(false);
+      }
     } catch (error) {
       console.error('Error fetching user profile:', error);
+      setOnboardingCompleted(false);
+    }
+  };
+
+  const checkIfOnboardingCompleted = (profile: UserProfile): boolean => {
+    // Check if essential onboarding fields are filled
+    return !!(
+      profile.full_name &&
+      profile.phone &&
+      profile.date_of_birth &&
+      profile.height_cm &&
+      profile.weight_kg
+    );
+  };
+
+  const checkOnboardingStatus = async (): Promise<boolean> => {
+    if (!user) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error || !data) {
+        return false;
+      }
+
+      const isCompleted = checkIfOnboardingCompleted(data);
+      setOnboardingCompleted(isCompleted);
+      return isCompleted;
+    } catch (error) {
+      console.error('Error checking onboarding status:', error);
+      return false;
     }
   };
 
@@ -142,6 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(null);
         setUser(null);
         setUserProfile(null);
+        setOnboardingCompleted(false);
       }
       
       return { error };
@@ -187,11 +235,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     userProfile,
     loading,
+    onboardingCompleted,
     signUp,
     signIn,
     signOut,
     updateProfile,
     refreshProfile,
+    checkOnboardingStatus,
   };
 
   return (
