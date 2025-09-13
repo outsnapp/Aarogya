@@ -14,32 +14,42 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import Logo from '../components/Logo';
 import { Colors, Typography } from '../constants/Colors';
+import { useAuth } from '../contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
 export default function SplashScreen() {
   const router = useRouter();
+  const { user, loading } = useAuth();
   
   // Animation values
   const backgroundAnimation = useSharedValue(0);
   const titleOpacity = useSharedValue(0);
   const taglineOpacity = useSharedValue(0);
 
-  const navigateToOnboarding = () => {
-    router.replace('/onboarding');
+  const navigateToNext = () => {
+    if (user) {
+      // User is logged in, go to onboarding or dashboard
+      router.replace('/onboarding');
+    } else {
+      // User is not logged in, go to login
+      router.replace('/auth/login');
+    }
   };
 
   useEffect(() => {
     // Start animations
     startAnimations();
     
-    // Navigate to onboarding after 4 seconds (longer to see the splash screen)
-    const timer = setTimeout(() => {
-      navigateToOnboarding();
-    }, 4000);
+    // Wait for auth to load, then navigate
+    if (!loading) {
+      const timer = setTimeout(() => {
+        navigateToNext();
+      }, 3000); // Reduced to 3 seconds
 
-    return () => clearTimeout(timer);
-  }, []);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, user]);
 
   const startAnimations = () => {
     // Background gradient shift
@@ -102,7 +112,7 @@ export default function SplashScreen() {
     <TouchableOpacity 
       style={styles.container} 
       activeOpacity={1}
-      onPress={navigateToOnboarding}
+      onPress={navigateToNext}
     >
       <Animated.View style={[styles.container, animatedBackgroundStyle]}>
         <StatusBar style="dark" backgroundColor={Colors.background} />

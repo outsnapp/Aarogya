@@ -16,10 +16,13 @@
 
   1. **AI-Powered Postpartum Recovery Timeline** — Personalized daily recovery milestones based on delivery type, age, and health history. Shows "You're on track" with specific next steps.
   2. **Smart Symptom Pattern Recognition** — Learns from user's daily inputs to predict potential issues before they become serious (e.g., "Your bleeding pattern suggests you should rest more today").
-  3. **Voice-First Check-ins** — Speak symptoms in Hindi/English, get instant voice responses. Perfect for hands-free operation while caring for baby.
+  3. **Voice-First Check-ins** — Speak symptoms in 6 languages (Hindi, English, Telugu, Tamil, Kannada, Malayalam), get instant voice responses. Perfect for hands-free operation while caring for baby.
   4. **Emergency Family Network** — Auto-alerts family members when red flags detected, with location sharing and medical history summary.
   5. **ASHA Worker Integration** — Real-time connection to local health workers who can see your progress and intervene proactively.
-* **Supporting features**: Basic dashboard, SMS fallback, simple baby tracking.
+  6. **Comprehensive Child Care System** — AI-powered baby growth tracking, nutrition guidance, developmental milestones, and exercise recommendations.
+  7. **Anonymous Questions Platform** — Private Q&A system for sensitive topics, allowing rural women to ask questions without fear of judgment.
+  8. **Mother Health & Nutrition Monitoring** — Daily food tracking, nutrition analysis, and comprehensive wellness check-ins.
+* **Supporting features**: Basic dashboard, SMS fallback, multi-lingual voice recognition, localized content.
 
 ---
 
@@ -96,12 +99,36 @@
 * `alerts`:
 
   * id, user\_id, checkin\_id, level, message, family\_notified, asha\_contacted, created\_at
+* `baby_profile`:
+
+  * id, user\_id, name, dob, gender, birth\_weight, current\_weight, current\_height, head\_circumference, created\_at
+* `baby_milestones`:
+
+  * id, baby\_id, milestone\_type (motor/social/cognitive), description, expected\_date, achieved\_date, notes, created\_at
+* `baby_feeding`:
+
+  * id, baby\_id, date, feeding\_type (breast/bottle/solid), amount, duration, notes, created\_at
+* `baby_growth`:
+
+  * id, baby\_id, date, weight, height, head\_circumference, percentile, notes, created\_at
+* `anonymous_questions`:
+
+  * id, user\_id, question\_text, category, urgency\_level, language, ai\_response, expert\_response, is\_anonymous, created\_at
+* `mother_nutrition`:
+
+  * id, user\_id, date, calories, protein, iron, calcium, water\_intake, meal\_log (json), health\_score, created\_at
+* `mother_health_metrics`:
+
+  * id, user\_id, date, weight, blood\_pressure, energy\_level, sleep\_hours, mood\_score, recovery\_progress, created\_at
+* `language_preferences`:
+
+  * id, user\_id, primary\_language, secondary\_language, voice\_recognition\_enabled, cultural\_region, created\_at
 
 ---
 
 ## 7. Core screens (designed to be built in 20 hours)
 
-We limit to **8 screens** plus voice/SMS channels. Each screen focuses on our unique USPs with detailed microcopy, contents, and animation notes.
+We limit to **12 screens** plus voice/SMS channels. Each screen focuses on our unique USPs with detailed microcopy, contents, and animation notes.
 
 ### Screen 0 — Launch / Splash
 
@@ -294,6 +321,170 @@ We limit to **8 screens** plus voice/SMS channels. Each screen focuses on our un
   * `Emergency Contact Access` (who can be contacted)
 * **Animations:** Contact status indicators pulse when active, notification history scrolls smoothly, toggle switches have smooth transitions.
 
+### Screen 9 — Child Care Dashboard (Comprehensive Baby Care)
+
+* **Purpose:** AI-powered child care system with growth tracking, nutrition guidance, and developmental milestones.
+* **Top header:** `Baby Care Center 👶` with current baby age: `{Baby Name} - 3 months old`
+* **Growth Tracking Section:**
+  * **Current Weight**: `6.2 kg` with growth chart showing percentile
+  * **Height**: `62 cm` with milestone progress
+  * **Head Circumference**: `40 cm` (normal range indicator)
+  * **Next Check-up**: `In 2 weeks - Vaccination due`
+* **Nutrition & Feeding:**
+  * **Feeding Schedule**: `Every 3 hours - 120ml per feed`
+  * **Nutrition Score**: `85/100 - Excellent growth`
+  * **Food Introduction**: `Ready for solid foods - Start with rice cereal`
+  * **Hydration**: `Good - 6 wet diapers today`
+* **Developmental Milestones:**
+  * **Motor Skills**: `✅ Lifts head during tummy time` (achieved)
+  * **Social Skills**: `✅ Smiles responsively` (achieved)
+  * **Next Milestone**: `Rolling over - Expected in 2 weeks`
+* **Exercise & Movement:**
+  * **Tummy Time**: `15 minutes today - Great job!`
+  * **Play Activities**: `Sensory play with colorful toys`
+  * **Sleep Pattern**: `14 hours total - 3 naps + night sleep`
+* **Health Monitoring:**
+  * **Temperature**: `Normal - 98.6°F`
+  * **Vaccination Status**: `Up to date - Next: 4-month vaccines`
+  * **Growth Concerns**: `None detected - Baby is thriving`
+* **Quick Actions:**
+  * `Log Feeding` (voice or manual entry)
+  * `Record Milestone` (photo + description)
+  * `Ask About Baby` (voice questions)
+  * `Growth Chart` (visual progress)
+* **Voice Integration**: `Ask me about your baby's development` (voice button)
+* **Animations:** Growth charts animate with progress, milestone achievements have celebration effects, feeding logs slide in smoothly.
+
+### Screen 10 — Anonymous Questions & Community Support
+
+* **Purpose:** Private Q&A platform for sensitive topics, allowing rural women to ask questions without fear of judgment.
+* **Top header:** `Ask Anonymously 🤐` with privacy indicator: `Your identity is protected`
+* **Question Categories:**
+  * **Postpartum Concerns**: `Bleeding, pain, recovery questions`
+  * **Baby Care**: `Feeding, sleep, development worries`
+  * **Mental Health**: `Mood, anxiety, depression support`
+  * **Family Issues**: `Relationship, support, cultural concerns`
+  * **Medical Questions**: `Symptoms, medications, treatments`
+* **Ask a Question Section:**
+  * **Voice Input**: Large microphone button `Speak your question privately`
+  * **Text Input**: `Type your question here...` (optional)
+  * **Category Selection**: Dropdown with sensitive topic categories
+  * **Urgency Level**: `Low / Medium / High` (for response priority)
+* **AI Response System:**
+  * **Instant Response**: `I understand your concern about...`
+  * **Personalized Advice**: Based on user's history and context
+  * **Follow-up Questions**: `Can you tell me more about...?`
+  * **Resource Links**: `Here are some helpful resources...`
+* **Community Support (Optional):**
+  * **Peer Answers**: `Other mothers have asked similar questions`
+  * **Expert Responses**: `ASHA workers and doctors answer`
+  * **Success Stories**: `How other mothers overcame this`
+* **Privacy Features:**
+  * **Anonymous Mode**: `No personal information shared`
+  * **Question History**: `Your questions are private to you`
+  * **Delete Option**: `Remove question and response anytime`
+* **Response Quality:**
+  * **AI Accuracy**: `95% accurate responses`
+  * **Human Review**: `Sensitive questions reviewed by experts`
+  * **Cultural Sensitivity**: `Responses consider local customs`
+* **Quick Actions:**
+  * `Ask New Question` (voice or text)
+  * `View My Questions` (private history)
+  * `Get Help Now` (emergency support)
+  * `Community Tips` (general advice)
+* **Voice Integration**: `Ask me anything - I'm here to help` (voice button)
+* **Animations:** Questions appear with typing effect, responses fade in gently, privacy indicators pulse softly.
+
+### Screen 11 — Mother Health & Nutrition Tracker
+
+* **Purpose:** Comprehensive mother health monitoring with daily food tracking, nutrition analysis, and wellness check-ins.
+* **Top header:** `Your Health Journey 💪` with health score: `Health Score: 78/100`
+* **Daily Nutrition Tracking:**
+  * **Calories**: `1,800/2,200 kcal` with progress bar
+  * **Protein**: `65/80g` (excellent for recovery)
+  * **Iron**: `18/27mg` (good for energy)
+  * **Calcium**: `1,000/1,300mg` (strong bones)
+  * **Water Intake**: `8/10 glasses` (hydration tracking)
+* **Meal Planning:**
+  * **Breakfast**: `✅ Oatmeal with fruits - 350 kcal`
+  * **Lunch**: `✅ Dal, rice, vegetables - 450 kcal`
+  * **Snacks**: `✅ Nuts and yogurt - 200 kcal`
+  * **Dinner**: `⏰ Planned: Roti with vegetables`
+* **Health Metrics:**
+  * **Weight**: `58 kg` (stable - good for recovery)
+  * **Blood Pressure**: `110/70` (normal range)
+  * **Energy Level**: `7/10` (improving daily)
+  * **Sleep Quality**: `6.5 hours` (could be better)
+* **Recovery Progress:**
+  * **Physical Recovery**: `85% complete`
+  * **Energy Restoration**: `70% complete`
+  * **Emotional Well-being**: `75% complete`
+  * **Overall Health**: `78% complete`
+* **Nutritional Insights:**
+  * **Strengths**: `Good protein intake, regular meals`
+  * **Areas to Improve**: `Need more iron-rich foods`
+  * **Recommendations**: `Add spinach, dates, and lentils`
+  * **Supplements**: `Continue prenatal vitamins`
+* **Health Alerts:**
+  * **Positive**: `Your energy is improving daily!`
+  * **Caution**: `Drink more water - you're slightly dehydrated`
+  * **Reminder**: `Don't forget your evening walk`
+* **Quick Actions:**
+  * `Log Meal` (voice or photo recognition)
+  * `Track Water` (simple counter)
+  * `Health Check-in` (comprehensive assessment)
+  * `Nutrition Tips` (personalized advice)
+* **Voice Integration**: `Tell me about your meals today` (voice button)
+* **Animations:** Nutrition bars fill with smooth animations, health metrics pulse when updated, meal logs slide in with food icons.
+
+### Screen 12 — Multi-lingual Settings & Language Selection
+
+* **Purpose:** Comprehensive language support system with voice recognition, localized content, and cultural adaptation.
+* **Top header:** `Language & Region 🌍` with current language: `Currently: English`
+* **Supported Languages:**
+  * **Hindi**: `हिन्दी` with voice recognition indicator
+  * **English**: `English` with voice recognition indicator
+  * **Telugu**: `తెలుగు` with voice recognition indicator
+  * **Tamil**: `தமிழ்` with voice recognition indicator
+  * **Kannada**: `ಕನ್ನಡ` with voice recognition indicator
+  * **Malayalam**: `മലയാളം` with voice recognition indicator
+* **Language Selection:**
+  * **Primary Language**: `English` (current selection)
+  * **Secondary Language**: `Hindi` (for mixed conversations)
+  * **Voice Recognition**: `All languages supported`
+  * **Text Display**: `All languages supported`
+* **Voice Features:**
+  * **Speech-to-Text**: `Works in all 6 languages`
+  * **Text-to-Speech**: `Natural voice synthesis`
+  * **Accent Recognition**: `Regional accents supported`
+  * **Mixed Language**: `Hindi-English conversations OK`
+* **Localized Content:**
+  * **Cultural Adaptation**: `Content adapted for local customs`
+  * **Regional Health Tips**: `Location-specific advice`
+  * **Local Food Suggestions**: `Regional cuisine recommendations`
+  * **Festival Integration**: `Health tips during festivals`
+* **Accessibility Features:**
+  * **Large Text**: `Adjustable font sizes`
+  * **High Contrast**: `Better visibility options`
+  * **Voice Navigation**: `Navigate app using voice`
+  * **Audio Descriptions**: `Screen reader support`
+* **Regional Settings:**
+  * **Time Zone**: `Asia/Kolkata`
+  * **Date Format**: `DD/MM/YYYY`
+  * **Currency**: `Indian Rupee (₹)`
+  * **Measurement**: `Metric system`
+* **Language Learning:**
+  * **Basic Phrases**: `Learn health-related phrases`
+  * **Pronunciation Guide**: `Voice pronunciation help`
+  * **Cultural Tips**: `Understanding local customs`
+* **Quick Actions:**
+  * `Change Language` (voice or selection)
+  * `Test Voice Recognition` (speak in any language)
+  * `Download Language Pack` (offline support)
+  * `Cultural Preferences` (local customs)
+* **Voice Integration**: `Speak in your preferred language` (voice button)
+* **Animations:** Language selection has smooth transitions, voice recognition indicators pulse when active, cultural content fades in with regional colors.
+
 ---
 
 ## 8. Exact copy for critical flows (ready-to-paste)
@@ -367,8 +558,9 @@ We limit to **8 screens** plus voice/SMS channels. Each screen focuses on our un
 * **Hour 10–12:** Build AI Recovery Timeline (Screen 6) with personalized milestone tracking and predictions.
 * **Hour 12–14:** Build ASHA Worker Dashboard (Screen 7) with real-time connection and monitoring features.
 * **Hour 14–16:** Build Family Network (Screen 8) with notification management and privacy controls.
-* **Hour 16–18:** Integrate voice synthesis, SMS fallback, and test all voice interactions.
-* **Hour 18–20:** Polish UI, add animations, create demo data, and prepare presentation.
+* **Hour 16–18:** Build Child Care Dashboard (Screen 9) and Anonymous Questions (Screen 10) with AI-powered responses.
+* **Hour 18–20:** Build Mother Health Tracker (Screen 11) and Multi-lingual Settings (Screen 12), integrate voice synthesis, SMS fallback, and test all voice interactions.
+* **Hour 20–22:** Polish UI, add animations, create demo data, and prepare presentation.
 
 ---
 
@@ -377,9 +569,11 @@ We limit to **8 screens** plus voice/SMS channels. Each screen focuses on our un
 1. **Voice-First Onboarding** (45s) — Show revolutionary voice onboarding: "Namaste! I am Aarogya..." with speech-to-text and emergency contact collection.
 2. **AI Recovery Dashboard** (45s) — Show personalized insights: "You're 65% through healing phase" with pattern recognition and family notifications.
 3. **Voice Check-in** (60s) — Demonstrate natural conversation: "How are you feeling?" → user speaks → AI responds with personalized advice and family alerts.
-4. **Smart Alert Activation** (45s) — Show AI detecting pattern: "Your bleeding increased 40%" → family network activated → ASHA worker connected.
-5. **ASHA Worker Connection** (30s) — Show real-time connection to local health worker with video call and medical history sharing.
-6. **Wrap-up** (15s) — Highlight unique USPs: Voice-first, AI pattern recognition, family network, ASHA integration.
+4. **Child Care Dashboard** (45s) — Show baby growth tracking, nutrition guidance, and developmental milestones with AI-powered insights.
+5. **Anonymous Questions** (30s) — Demonstrate private Q&A system: "Ask me anything privately" → sensitive question → AI response with cultural sensitivity.
+6. **Multi-lingual Support** (30s) — Show voice recognition in Hindi, Telugu, Tamil, Kannada, Malayalam with localized content.
+7. **Smart Alert Activation** (30s) — Show AI detecting pattern: "Your bleeding increased 40%" → family network activated → ASHA worker connected.
+8. **Wrap-up** (15s) — Highlight unique USPs: Voice-first, AI pattern recognition, family network, ASHA integration, child care, anonymous support, multi-lingual.
 
 ---
 
@@ -453,15 +647,18 @@ async def sms_inbound(request: Request):
 ## 17. What to include in your hackathon slide (single page)
 
 * **Problem**: Postpartum care gaps in rural India - 60% of mothers lack proper recovery guidance
-* **Solution**: Aarogya - AI-powered voice-first companion with family network integration
+* **Solution**: Aarogya - AI-powered voice-first companion with comprehensive mother & baby care
 * **Unique USPs**: 
-  - Voice-first interaction (Hindi/English)
+  - Voice-first interaction (6 languages: Hindi, English, Telugu, Tamil, Kannada, Malayalam)
   - AI pattern recognition for early intervention
   - Real-time family network activation
   - Direct ASHA worker connection
-* **Live demo**: Voice onboarding → AI insights → Pattern detection → Family alerts
-* **20hr build plan**: Voice recognition → AI dashboard → Pattern engine → Family network
-* **Impact**: 10M+ rural mothers, 40% faster recovery, 60% fewer complications
+  - Comprehensive child care system
+  - Anonymous questions for sensitive topics
+  - Mother health & nutrition monitoring
+* **Live demo**: Voice onboarding → AI insights → Child care → Anonymous Q&A → Multi-lingual support → Pattern detection → Family alerts
+* **22hr build plan**: Voice recognition → AI dashboard → Child care → Anonymous platform → Health tracking → Multi-lingual → Pattern engine → Family network
+* **Impact**: 10M+ rural mothers, 40% faster recovery, 60% fewer complications, 50% better child development
 
 ---
 

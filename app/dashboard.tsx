@@ -103,6 +103,50 @@ const FamilyIcon = ({ size = 24 }: { size?: number }) => (
   </Svg>
 );
 
+const BabyIcon = ({ size = 24 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+      fill={Colors.primary}
+    />
+    <Circle cx="12" cy="12" r="3" fill={Colors.secondary} />
+  </Svg>
+);
+
+const AnonymousIcon = ({ size = 24 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"
+      fill={Colors.secondary}
+    />
+    <Circle cx="12" cy="12" r="2" fill={Colors.background} />
+  </Svg>
+);
+
+const HealthIcon = ({ size = 24 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+      fill={Colors.warning}
+    />
+    <Path
+      d="M12 6v6l4 2"
+      stroke={Colors.background}
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
+const LanguageIcon = ({ size = 24 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M12.87 15.07l-2.54-2.51.03-.03c1.74-1.94 2.98-4.17 3.71-6.53H17V4h-7V2H8v2H1v1.99h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"
+      fill={Colors.primary}
+    />
+  </Svg>
+);
+
 const SmartAlert = ({ type, message, delay }: SmartAlertProps) => {
   const alertOpacity = useSharedValue(0);
   const alertTranslateY = useSharedValue(20);
@@ -249,6 +293,22 @@ export default function DashboardScreen() {
     router.push('/family-network');
   };
 
+  const handleChildCare = () => {
+    router.push('/child-care');
+  };
+
+  const handleAnonymousQuestions = () => {
+    router.push('/anonymous-questions');
+  };
+
+  const handleMotherHealth = () => {
+    router.push('/mother-health');
+  };
+
+  const handleMultilingualSettings = () => {
+    router.push('/multilingual-settings');
+  };
+
   const animatedHeaderStyle = useAnimatedStyle(() => ({
     opacity: headerOpacity.value,
     transform: [{ translateY: headerTranslateY.value }],
@@ -277,8 +337,12 @@ export default function DashboardScreen() {
     { title: 'Voice Check-in', icon: <VoiceIcon size={28} />, onPress: handleVoiceStart, delay: 2100 },
     { title: 'View Timeline', icon: <TimelineIcon size={28} />, onPress: handleViewTimeline, delay: 2400 },
     { title: 'Contact ASHA Worker', icon: <ASHAIcon size={28} />, onPress: handleContactASHA, delay: 2700 },
-    { title: 'Family Network', icon: <FamilyIcon size={28} />, onPress: handleFamilyNetwork, delay: 3000 },
-    { title: 'Emergency', icon: <EmergencyIcon size={28} />, onPress: handleEmergency, delay: 3300 },
+    { title: 'Child Care', icon: <BabyIcon size={28} />, onPress: handleChildCare, delay: 3000 },
+    { title: 'Anonymous Q&A', icon: <AnonymousIcon size={28} />, onPress: handleAnonymousQuestions, delay: 3300 },
+    { title: 'Mother Health', icon: <HealthIcon size={28} />, onPress: handleMotherHealth, delay: 3600 },
+    { title: 'Language Settings', icon: <LanguageIcon size={28} />, onPress: handleMultilingualSettings, delay: 3900 },
+    { title: 'Family Network', icon: <FamilyIcon size={28} />, onPress: handleFamilyNetwork, delay: 4200 },
+    { title: 'Emergency', icon: <EmergencyIcon size={28} />, onPress: handleEmergency, delay: 4500 },
   ];
 
   return (
