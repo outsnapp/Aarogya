@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -15,6 +15,8 @@ import { Svg, Circle, Path, G } from 'react-native-svg';
 
 import { Colors, Typography } from '../constants/Colors';
 import VoiceRecorder from '../components/VoiceRecorder';
+import { useAuth } from '../contexts/AuthContext';
+import { DashboardService, DashboardData } from '../lib/dashboardService';
 
 const { width } = Dimensions.get('window');
 
@@ -219,8 +221,11 @@ const QuickAction = ({ title, icon, onPress, delay }: QuickActionProps) => {
 
 export default function DashboardScreen() {
   const router = useRouter();
+  const { user, userProfile } = useAuth();
   const [isListening, setIsListening] = useState(false);
-  const [userName] = useState('Priya'); // Demo name
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Animation values
   const headerOpacity = useSharedValue(0);
@@ -229,6 +234,40 @@ export default function DashboardScreen() {
   const insightsTranslateY = useSharedValue(30);
   const progressValue = useSharedValue(0);
   const voicePulse = useSharedValue(1);
+
+  // Load dashboard data
+  const loadDashboardData = async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const data = await DashboardService.getDashboardData(user.id);
+      setDashboardData(data);
+      
+      if (data) {
+        // Animate progress bar with real data
+        progressValue.value = withDelay(
+          800,
+          withTiming(data.recoveryProgress.percentage / 100, { 
+            duration: 1000, 
+            easing: Easing.out(Easing.quad) 
+          })
+        );
+      }
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+      Alert.alert('Error', 'Failed to load dashboard data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [user]);
 
   useEffect(() => {
     // Header animation
@@ -245,12 +284,6 @@ export default function DashboardScreen() {
       withTiming(0, { duration: 600, easing: Easing.out(Easing.quad) })
     );
 
-    // Progress bar animation
-    progressValue.value = withDelay(
-      800,
-      withTiming(0.65, { duration: 1000, easing: Easing.out(Easing.quad) })
-    );
-
     // Voice button pulse animation
     voicePulse.value = withRepeat(
       withSequence(
@@ -260,7 +293,7 @@ export default function DashboardScreen() {
       -1,
       false
     );
-  }, []);
+  }, [dashboardData]);
 
   const handleVoiceStart = () => {
     setIsListening(true);
@@ -286,7 +319,27 @@ export default function DashboardScreen() {
   };
 
   const handleEmergency = () => {
-    router.push('/emergency');
+    Alert.alert(
+      'Emergency Contact',
+      'This will notify your emergency contacts and connect you with an ASHA worker. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Call Emergency', 
+          style: 'destructive',
+          onPress: () => {
+            // TODO: Implement emergency contact notification
+            Alert.alert('Emergency Alert', 'Your emergency contacts have been notified and an ASHA worker will contact you shortly.');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadDashboardData();
+    setRefreshing(false);
   };
 
   const handleFamilyNetwork = () => {
@@ -327,11 +380,34 @@ export default function DashboardScreen() {
     transform: [{ scale: voicePulse.value }],
   }));
 
-  const smartAlerts = [
-    { type: 'pattern' as const, message: 'Your mood has been low for 2 days. Would you like to talk?', delay: 1200 },
-    { type: 'celebration' as const, message: 'Great! Your energy levels are improving', delay: 1500 },
-    { type: 'family' as const, message: 'Your husband Rajesh was notified of your progress', delay: 1800 },
-  ];
+  // Show loading state
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="dark" backgroundColor={Colors.background} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading your dashboard...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Show empty state if no data
+  if (!dashboardData) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="dark" backgroundColor={Colors.background} />
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyTitle}>Welcome to Aarogya!</Text>
+          <Text style={styles.emptyText}>Complete your profile setup to get personalized insights.</Text>
+          <TouchableOpacity style={styles.setupButton} onPress={() => router.push('/onboarding')}>
+            <Text style={styles.setupButtonText}>Complete Setup</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   const quickActions = [
     { title: 'Voice Check-in', icon: <VoiceIcon size={28} />, onPress: handleVoiceStart, delay: 2100 },
@@ -354,12 +430,16 @@ export default function DashboardScreen() {
         <Animated.View style={[styles.header, animatedHeaderStyle]}>
           <View style={styles.headerContent}>
             <View style={styles.greetingContainer}>
-              <Text style={styles.greeting}>Good morning, {userName} 🌼</Text>
+              <Text style={styles.greeting}>
+                {DashboardService.getTimeBasedGreeting()}, {DashboardService.getUserDisplayName(dashboardData?.userProfile)} 🌼
+              </Text>
               <Text style={styles.subGreeting}>How are you feeling today?</Text>
             </View>
             <View style={styles.avatarContainer}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{userName.charAt(0)}</Text>
+                <Text style={styles.avatarText}>
+                  {DashboardService.getUserDisplayName(dashboardData?.userProfile).charAt(0).toUpperCase()}
+                </Text>
               </View>
             </View>
           </View>
@@ -370,30 +450,43 @@ export default function DashboardScreen() {
           <Text style={styles.insightsTitle}>AI Recovery Insights</Text>
           
           {/* Recovery Status */}
-          <View style={styles.recoveryStatus}>
-            <Text style={styles.statusText}>You're 65% through your healing phase</Text>
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBackground}>
-                <Animated.View style={[styles.progressFill, animatedProgressStyle]} />
+          {dashboardData?.recoveryProgress.isActive && (
+            <View style={styles.recoveryStatus}>
+              <Text style={styles.statusText}>
+                You're {dashboardData.recoveryProgress.percentage}% through your {dashboardData.recoveryProgress.phase.toLowerCase()}
+              </Text>
+              <View style={styles.progressContainer}>
+                <View style={styles.progressBackground}>
+                  <Animated.View style={[styles.progressFill, animatedProgressStyle]} />
+                </View>
               </View>
             </View>
-          </View>
+          )}
 
           {/* Today's Focus */}
-          <View style={styles.todayFocus}>
-            <Text style={styles.focusTitle}>Today's Focus</Text>
-            <Text style={styles.focusText}>
-              Rest more today - your bleeding pattern suggests you need extra care
-            </Text>
-          </View>
+          {dashboardData?.todayFocus && (
+            <View style={[styles.todayFocus, { 
+              backgroundColor: dashboardData.todayFocus.priority === 'high' ? Colors.danger + '20' : 
+                             dashboardData.todayFocus.priority === 'medium' ? Colors.warning + '20' : 
+                             Colors.secondaryLight 
+            }]}>
+              <Text style={styles.focusTitle}>{dashboardData.todayFocus.title}</Text>
+              <Text style={styles.focusText}>{dashboardData.todayFocus.message}</Text>
+            </View>
+          )}
 
           {/* Predicted Milestone */}
-          <View style={styles.milestone}>
-            <Text style={styles.milestoneTitle}>Predicted Milestone</Text>
-            <Text style={styles.milestoneText}>
-              In 3 days, you should feel strong enough for 10-minute walks
-            </Text>
-          </View>
+          {dashboardData?.predictedMilestone && dashboardData.predictedMilestone.daysUntil > 0 && (
+            <View style={styles.milestone}>
+              <Text style={styles.milestoneTitle}>{dashboardData.predictedMilestone.title}</Text>
+              <Text style={styles.milestoneText}>
+                {dashboardData.predictedMilestone.message}
+                {dashboardData.predictedMilestone.daysUntil > 0 && (
+                  ` (In ${dashboardData.predictedMilestone.daysUntil} day${dashboardData.predictedMilestone.daysUntil > 1 ? 's' : ''})`
+                )}
+              </Text>
+            </View>
+          )}
 
           {/* Voice Check-in Button */}
           <Animated.View style={animatedVoiceStyle}>
@@ -411,17 +504,19 @@ export default function DashboardScreen() {
         </Animated.View>
 
         {/* Smart Alerts Section */}
-        <View style={styles.alertsSection}>
-          <Text style={styles.sectionTitle}>Smart Alerts</Text>
-          {smartAlerts.map((alert, index) => (
-            <SmartAlert
-              key={index}
-              type={alert.type}
-              message={alert.message}
-              delay={alert.delay}
-            />
-          ))}
-        </View>
+        {dashboardData?.smartAlerts && dashboardData.smartAlerts.length > 0 && (
+          <View style={styles.alertsSection}>
+            <Text style={styles.sectionTitle}>Smart Alerts</Text>
+            {dashboardData.smartAlerts.map((alert, index) => (
+              <SmartAlert
+                key={index}
+                type={alert.type}
+                message={alert.message}
+                delay={1200 + (index * 300)}
+              />
+            ))}
+          </View>
+        )}
 
         {/* Quick Actions */}
         <View style={styles.actionsSection}>
@@ -639,6 +734,57 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.sm,
     fontFamily: Typography.bodyMedium,
     color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  loadingText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  emptyTitle: {
+    fontSize: Typography.sizes.xl,
+    fontFamily: Typography.heading,
+    color: Colors.textPrimary,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  emptyText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    marginBottom: 24,
+    textAlign: 'center',
+    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.base,
+  },
+  setupButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 25,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  setupButtonText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.background,
     textAlign: 'center',
   },
 });

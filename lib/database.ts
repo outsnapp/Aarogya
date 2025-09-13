@@ -22,44 +22,83 @@ export class DatabaseService {
   // Save onboarding data to multiple tables
   async saveOnboardingData(userId: string, data: OnboardingData) {
     try {
-      // 1. Update user profile
-      const { error: profileError } = await supabase
+      // 1. Create or update user profile
+      const { data: existingProfile, error: checkError } = await supabase
         .from('user_profiles')
-        .update({
-          full_name: data.name,
-          phone: data.phone,
-          date_of_birth: this.parseDate(data.motherDob),
-          height_cm: parseInt(data.motherHeight) || null,
-          weight_kg: parseFloat(data.motherWeight) || null,
-          bmi: data.motherBmi || null,
-          preferred_language: data.preferredLanguage.toLowerCase(),
-          voice_sms_consent: data.voiceSmsConsent,
-        })
-        .eq('id', userId);
-
-      if (profileError) {
-        console.error('Error updating user profile:', profileError);
-        return { error: profileError };
-      }
-
-      // 2. Create baby profile
-      const { data: babyData, error: babyError } = await supabase
-        .from('baby_profiles')
-        .insert({
-          user_id: userId,
-          name: `${data.name}'s Baby`, // Default name, can be updated later
-          date_of_birth: this.parseDate(data.babyDob),
-          height_cm: parseFloat(data.babyHeight) || null,
-          weight_kg: parseFloat(data.babyWeight) || null,
-          delivery_type: data.deliveryType.toLowerCase().includes('c-section') ? 'c_section' : 'normal',
-          medical_conditions: data.babyMedicalConditions || null,
-        })
-        .select()
+        .select('id')
+        .eq('id', userId)
         .single();
 
-      if (babyError) {
-        console.error('Error creating baby profile:', babyError);
-        return { error: babyError };
+      let profileResult;
+      if (!existingProfile) {
+        // Create new profile if it doesn't exist
+        profileResult = await supabase
+          .from('user_profiles')
+          .insert({
+            id: userId,
+            email: (await supabase.auth.getUser()).data.user?.email || '',
+            full_name: data.name || null,
+            phone: data.phone || null,
+            date_of_birth: this.parseDate(data.motherDob),
+            height_cm: data.motherHeight ? parseInt(data.motherHeight) : null,
+            weight_kg: data.motherWeight ? parseFloat(data.motherWeight) : null,
+            bmi: data.motherBmi || null,
+            preferred_language: data.preferredLanguage ? data.preferredLanguage.toLowerCase() : 'english',
+            voice_sms_consent: data.voiceSmsConsent || false,
+          })
+          .select()
+          .single();
+      } else {
+        // Update existing profile
+        profileResult = await supabase
+          .from('user_profiles')
+          .update({
+            full_name: data.name || null,
+            phone: data.phone || null,
+            date_of_birth: this.parseDate(data.motherDob),
+            height_cm: data.motherHeight ? parseInt(data.motherHeight) : null,
+            weight_kg: data.motherWeight ? parseFloat(data.motherWeight) : null,
+            bmi: data.motherBmi || null,
+            preferred_language: data.preferredLanguage ? data.preferredLanguage.toLowerCase() : 'english',
+            voice_sms_consent: data.voiceSmsConsent || false,
+          })
+          .eq('id', userId)
+          .select()
+          .single();
+
+      }
+
+      if (profileResult.error) {
+        console.error('Error with user profile:', profileResult.error);
+        return { error: profileResult.error };
+      }
+
+      // Wait a short moment to ensure the profile is created in the database
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // 2. Create baby profile (only if baby data exists)
+      let babyData = null;
+      if (data.babyDob || data.babyHeight || data.babyWeight) {
+        const { data: babyResult, error: babyError } = await supabase
+          .from('baby_profiles')
+          .insert({
+            user_id: userId,
+            name: data.name ? `${data.name}'s Baby` : 'Baby', // Default name, can be updated later
+            date_of_birth: this.parseDate(data.babyDob),
+            height_cm: data.babyHeight ? parseFloat(data.babyHeight) : null,
+            weight_kg: data.babyWeight ? parseFloat(data.babyWeight) : null,
+            delivery_type: data.deliveryType && data.deliveryType.toLowerCase().includes('c-section') ? 'c_section' : 'normal_delivery',
+            medical_conditions: data.babyMedicalConditions || null,
+          })
+          .select()
+          .single();
+
+        if (babyError) {
+          console.error('Error creating baby profile:', babyError);
+          // Don't return error here as it's not critical for basic profile creation
+        } else {
+          babyData = babyResult;
+        }
       }
 
       // 3. Create emergency contacts
@@ -86,19 +125,20 @@ export class DatabaseService {
       }
 
       // 4. Create initial language preferences
-      const { error: langError } = await supabase
-        .from('language_preferences')
-        .insert({
-          user_id: userId,
-          primary_language: data.preferredLanguage.toLowerCase(),
-          voice_recognition_language: data.preferredLanguage.toLowerCase(),
-          text_display_language: data.preferredLanguage.toLowerCase(),
-          cultural_adaptation: true,
-        });
+      if (data.preferredLanguage) {
+        const { error: langError } = await supabase
+          .from('language_preferences')
+          .insert({
+            user_id: userId,
+            primary_language: data.preferredLanguage.toLowerCase(),
+            voice_recognition_language: data.preferredLanguage.toLowerCase(),
+            text_display_language: data.preferredLanguage.toLowerCase(),
+          });
 
-      if (langError) {
-        console.error('Error creating language preferences:', langError);
-        // Don't return error here as it's not critical
+        if (langError) {
+          console.error('Error creating language preferences:', langError);
+          // Don't return error here as it's not critical
+        }
       }
 
       return { 
@@ -321,21 +361,39 @@ export class DatabaseService {
   }
 
   // Helper functions
-  private parseDate(dateString: string): string {
+  private parseDate(dateString: string): string | null {
     try {
+      // Return null for empty or invalid dates
+      if (!dateString || dateString.trim() === '' || dateString === 'undefined' || dateString === 'null') {
+        return null;
+      }
+
       // Handle different date formats (DD/MM/YYYY, DD-MM-YYYY, etc.)
       const parts = dateString.split(/[\/\-]/);
       if (parts.length === 3) {
         // Assume DD/MM/YYYY format
-        const day = parts[0].padStart(2, '0');
-        const month = parts[1].padStart(2, '0');
-        const year = parts[2];
-        return `${year}-${month}-${day}`;
+        const day = parseInt(parts[0]);
+        const month = parseInt(parts[1]);
+        const year = parseInt(parts[2]);
+        
+        // Validate the date parts
+        if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1900 && year <= 2100) {
+          const dayStr = day.toString().padStart(2, '0');
+          const monthStr = month.toString().padStart(2, '0');
+          return `${year}-${monthStr}-${dayStr}`;
+        }
       }
-      return dateString;
+      
+      // If it's already in YYYY-MM-DD format, validate and return
+      if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return dateString;
+      }
+      
+      // If we can't parse it, return null
+      return null;
     } catch (error) {
       console.error('Error parsing date:', error);
-      return dateString;
+      return null;
     }
   }
 

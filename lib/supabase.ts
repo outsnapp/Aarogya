@@ -6,10 +6,35 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://xunasrnybtjkepngvprt.supabase.co';
 const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1bmFzcm55YnRqa2Vwbmd2cHJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc3OTU1MzQsImV4cCI6MjA3MzM3MTUzNH0.QK2mmhHlbiJZMENxOA-6uWbB5WvRP4ovlp9__S27G2A';
 
+// Create Supabase client with custom storage
+const customStorage = {
+  getItem: async (key: string) => {
+    try {
+      return await AsyncStorage.getItem(key);
+    } catch (e) {
+      return null;
+    }
+  },
+  setItem: async (key: string, value: string) => {
+    try {
+      return await AsyncStorage.setItem(key, value);
+    } catch (e) {
+      return null;
+    }
+  },
+  removeItem: async (key: string) => {
+    try {
+      return await AsyncStorage.removeItem(key);
+    } catch (e) {
+      return null;
+    }
+  },
+};
+
 // Create Supabase client
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    storage: AsyncStorage,
+    storage: customStorage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
