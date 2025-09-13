@@ -1,0 +1,2 @@
+# Font assets will be downloaded when running npm install
+# For now, we'll use system fonts as fallback
