@@ -115,7 +115,7 @@ export default function OnboardingScreen() {
 
   const completeOnboarding = () => {
     // Navigate to next screen (Screen 2 - AI Recovery Timeline Preview)
-    router.replace('/dashboard');
+    router.replace('/timeline-preview');
   };
 
   const handleSkip = () => {
