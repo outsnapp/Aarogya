@@ -17,6 +17,7 @@ export default function RootLayout() {
       <Stack.Screen name="smart-alert" />
       <Stack.Screen name="recovery-timeline" />
       <Stack.Screen name="asha-worker" />
+      <Stack.Screen name="family-network" />
     </Stack>
   );
 }

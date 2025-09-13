@@ -87,6 +87,22 @@ const EmergencyIcon = ({ size = 24 }: { size?: number }) => (
   </Svg>
 );
 
+const FamilyIcon = ({ size = 24 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+      fill={Colors.secondary}
+    />
+    <Circle cx="8.5" cy="7" r="4" fill={Colors.secondary} />
+    <Path
+      d="M20 8v6M23 11h-6"
+      stroke={Colors.background}
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
 const SmartAlert = ({ type, message, delay }: SmartAlertProps) => {
   const alertOpacity = useSharedValue(0);
   const alertTranslateY = useSharedValue(20);
@@ -229,6 +245,10 @@ export default function DashboardScreen() {
     router.push('/emergency');
   };
 
+  const handleFamilyNetwork = () => {
+    router.push('/family-network');
+  };
+
   const animatedHeaderStyle = useAnimatedStyle(() => ({
     opacity: headerOpacity.value,
     transform: [{ translateY: headerTranslateY.value }],
@@ -257,7 +277,8 @@ export default function DashboardScreen() {
     { title: 'Voice Check-in', icon: <VoiceIcon size={28} />, onPress: handleVoiceStart, delay: 2100 },
     { title: 'View Timeline', icon: <TimelineIcon size={28} />, onPress: handleViewTimeline, delay: 2400 },
     { title: 'Contact ASHA Worker', icon: <ASHAIcon size={28} />, onPress: handleContactASHA, delay: 2700 },
-    { title: 'Emergency', icon: <EmergencyIcon size={28} />, onPress: handleEmergency, delay: 3000 },
+    { title: 'Family Network', icon: <FamilyIcon size={28} />, onPress: handleFamilyNetwork, delay: 3000 },
+    { title: 'Emergency', icon: <EmergencyIcon size={28} />, onPress: handleEmergency, delay: 3300 },
   ];
 
   return (
