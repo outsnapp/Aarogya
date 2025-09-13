@@ -57,7 +57,7 @@
 
 ## 5. Tech stack (optimized for unique voice-first features)
 
-* Frontend: **Next.js + React + Tailwind CSS + shadcn components** (cursor integrates well)
+* Frontend: **Next.js + React + Tailwind CSS + shadcn components** (integrates well)
 * Voice Recognition: **Web Speech API** (browser native) + **Google Cloud Speech-to-Text** (fallback)
 * Voice Synthesis: **Web Speech API** (browser native) + **Google Cloud Text-to-Speech** (fallback)
 * Animations: **Framer Motion** for smooth voice interactions and AI insights

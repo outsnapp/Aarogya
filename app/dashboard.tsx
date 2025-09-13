@@ -218,7 +218,7 @@ export default function DashboardScreen() {
   };
 
   const handleViewTimeline = () => {
-    router.push('/timeline-preview');
+    router.push('/recovery-timeline');
   };
 
   const handleContactASHA = () => {
