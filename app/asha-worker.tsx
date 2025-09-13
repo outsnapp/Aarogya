@@ -1,0 +1,713 @@
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Switch } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSequence,
+  withDelay,
+  withRepeat,
+  Easing,
+} from 'react-native-reanimated';
+import { Svg, Path, Circle, G } from 'react-native-svg';
+
+import { Colors, Typography } from '../constants/Colors';
+
+const { width } = Dimensions.get('window');
+
+interface CommunicationOptionProps {
+  title: string;
+  icon: React.ReactNode;
+  onPress: () => void;
+  type: 'primary' | 'secondary' | 'emergency';
+  delay: number;
+}
+
+interface EmergencyFeatureProps {
+  title: string;
+  icon: React.ReactNode;
+  onPress: () => void;
+  delay: number;
+}
+
+interface SettingItemProps {
+  title: string;
+  description: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+  delay: number;
+}
+
+// Custom icons for communication options
+const VoiceCallIcon = ({ size = 24 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"
+      fill={Colors.textPrimary}
+    />
+  </Svg>
+);
+
+const VideoCallIcon = ({ size = 24 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"
+      fill={Colors.textPrimary}
+    />
+  </Svg>
+);
+
+const VoiceMessageIcon = ({ size = 24 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M12 1c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2s2-.9 2-2V3c0-1.1-.9-2-2-2z"
+      fill={Colors.textPrimary}
+    />
+    <Path
+      d="M19 10v2c0 3.87-3.13 7-7 7s-7-3.13-7-7v-2h2v2c0 2.76 2.24 5 5 5s5-2.24 5-5v-2h2z"
+      fill={Colors.textPrimary}
+    />
+    <Path
+      d="M11 21h2v2h-2z"
+      fill={Colors.textPrimary}
+    />
+  </Svg>
+);
+
+const LocationIcon = ({ size = 24 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
+      fill={Colors.textPrimary}
+    />
+  </Svg>
+);
+
+const EmergencyCallIcon = ({ size = 24 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+      fill={Colors.textPrimary}
+    />
+    <Path
+      d="M12 6v6l4 2"
+      stroke={Colors.background}
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
+const MedicalSummaryIcon = ({ size = 24 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"
+      fill={Colors.textPrimary}
+    />
+    <Path
+      d="M14 2v6h6"
+      stroke={Colors.background}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M16 13H8M16 17H8M10 9H8"
+      stroke={Colors.background}
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
+const HomeVisitIcon = ({ size = 24 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"
+      fill={Colors.textPrimary}
+    />
+  </Svg>
+);
+
+const CommunicationOption = ({ title, icon, onPress, type, delay }: CommunicationOptionProps) => {
+  const optionOpacity = useSharedValue(0);
+  const optionScale = useSharedValue(0.9);
+
+  useEffect(() => {
+    optionOpacity.value = withDelay(
+      delay,
+      withTiming(1, { duration: 400, easing: Easing.out(Easing.quad) })
+    );
+    optionScale.value = withDelay(
+      delay,
+      withTiming(1, { duration: 400, easing: Easing.out(Easing.quad) })
+    );
+  }, [delay]);
+
+  const getButtonStyle = () => {
+    switch (type) {
+      case 'primary':
+        return styles.primaryButton;
+      case 'secondary':
+        return styles.secondaryButton;
+      case 'emergency':
+        return styles.emergencyButton;
+      default:
+        return styles.secondaryButton;
+    }
+  };
+
+  const animatedOptionStyle = useAnimatedStyle(() => ({
+    opacity: optionOpacity.value,
+    transform: [{ scale: optionScale.value }],
+  }));
+
+  return (
+    <Animated.View style={animatedOptionStyle}>
+      <TouchableOpacity style={[styles.communicationButton, getButtonStyle()]} onPress={onPress}>
+        <View style={styles.communicationIcon}>{icon}</View>
+        <Text style={styles.communicationText}>{title}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+const EmergencyFeature = ({ title, icon, onPress, delay }: EmergencyFeatureProps) => {
+  const featureOpacity = useSharedValue(0);
+  const featureTranslateY = useSharedValue(20);
+
+  useEffect(() => {
+    featureOpacity.value = withDelay(
+      delay,
+      withTiming(1, { duration: 500, easing: Easing.out(Easing.quad) })
+    );
+    featureTranslateY.value = withDelay(
+      delay,
+      withTiming(0, { duration: 500, easing: Easing.out(Easing.quad) })
+    );
+  }, [delay]);
+
+  const animatedFeatureStyle = useAnimatedStyle(() => ({
+    opacity: featureOpacity.value,
+    transform: [{ translateY: featureTranslateY.value }],
+  }));
+
+  return (
+    <Animated.View style={animatedFeatureStyle}>
+      <TouchableOpacity style={styles.emergencyFeatureButton} onPress={onPress}>
+        <View style={styles.emergencyFeatureIcon}>{icon}</View>
+        <Text style={styles.emergencyFeatureText}>{title}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+const SettingItem = ({ title, description, value, onValueChange, delay }: SettingItemProps) => {
+  const settingOpacity = useSharedValue(0);
+  const settingTranslateX = useSharedValue(-20);
+
+  useEffect(() => {
+    settingOpacity.value = withDelay(
+      delay,
+      withTiming(1, { duration: 400, easing: Easing.out(Easing.quad) })
+    );
+    settingTranslateX.value = withDelay(
+      delay,
+      withTiming(0, { duration: 400, easing: Easing.out(Easing.quad) })
+    );
+  }, [delay]);
+
+  const animatedSettingStyle = useAnimatedStyle(() => ({
+    opacity: settingOpacity.value,
+    transform: [{ translateX: settingTranslateX.value }],
+  }));
+
+  return (
+    <Animated.View style={[styles.settingItem, animatedSettingStyle]}>
+      <View style={styles.settingContent}>
+        <Text style={styles.settingTitle}>{title}</Text>
+        <Text style={styles.settingDescription}>{description}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: Colors.textMuted + '40', true: Colors.primary }}
+        thumbColor={value ? Colors.background : Colors.textMuted}
+      />
+    </Animated.View>
+  );
+};
+
+export default function ASHAWorkerScreen() {
+  const router = useRouter();
+  const [isOnline, setIsOnline] = useState(true);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [smsEnabled, setSmsEnabled] = useState(true);
+  const [languageHindi, setLanguageHindi] = useState(false);
+  const [familyNotifications, setFamilyNotifications] = useState(true);
+  const [locationSharing, setLocationSharing] = useState(true);
+
+  // Animation values
+  const headerOpacity = useSharedValue(0);
+  const headerTranslateY = useSharedValue(-20);
+  const statusPulse = useSharedValue(1);
+  const profileOpacity = useSharedValue(0);
+  const profileTranslateY = useSharedValue(30);
+
+  useEffect(() => {
+    // Header animation
+    headerOpacity.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.quad) });
+    headerTranslateY.value = withTiming(0, { duration: 500, easing: Easing.out(Easing.quad) });
+
+    // Profile animation
+    profileOpacity.value = withDelay(
+      300,
+      withTiming(1, { duration: 600, easing: Easing.out(Easing.quad) })
+    );
+    profileTranslateY.value = withDelay(
+      300,
+      withTiming(0, { duration: 600, easing: Easing.out(Easing.quad) })
+    );
+
+    // Status pulse animation
+    if (isOnline) {
+      statusPulse.value = withRepeat(
+        withSequence(
+          withTiming(1.05, { duration: 1000, easing: Easing.inOut(Easing.quad) }),
+          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.quad) })
+        ),
+        -1,
+        false
+      );
+    }
+  }, [isOnline]);
+
+  const handleVoiceCall = () => {
+    console.log('Voice call initiated');
+  };
+
+  const handleVideoCall = () => {
+    console.log('Video call initiated');
+  };
+
+  const handleVoiceMessage = () => {
+    console.log('Voice message sent');
+  };
+
+  const handleShareLocation = () => {
+    console.log('Location shared');
+  };
+
+  const handleEmergencyCall = () => {
+    console.log('Emergency call initiated');
+  };
+
+  const handleShareMedicalSummary = () => {
+    console.log('Medical summary shared');
+  };
+
+  const handleRequestHomeVisit = () => {
+    console.log('Home visit requested');
+  };
+
+  const handleBackToDashboard = () => {
+    router.back();
+  };
+
+  const animatedHeaderStyle = useAnimatedStyle(() => ({
+    opacity: headerOpacity.value,
+    transform: [{ translateY: headerTranslateY.value }],
+  }));
+
+  const animatedStatusStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: statusPulse.value }],
+  }));
+
+  const animatedProfileStyle = useAnimatedStyle(() => ({
+    opacity: profileOpacity.value,
+    transform: [{ translateY: profileTranslateY.value }],
+  }));
+
+  const communicationOptions = [
+    { title: 'Voice Call', icon: <VoiceCallIcon size={24} />, onPress: handleVoiceCall, type: 'primary' as const, delay: 1200 },
+    { title: 'Video Call', icon: <VideoCallIcon size={24} />, onPress: handleVideoCall, type: 'secondary' as const, delay: 1400 },
+    { title: 'Send Voice Message', icon: <VoiceMessageIcon size={24} />, onPress: handleVoiceMessage, type: 'secondary' as const, delay: 1600 },
+    { title: 'Share Location', icon: <LocationIcon size={24} />, onPress: handleShareLocation, type: 'secondary' as const, delay: 1800 },
+  ];
+
+  const emergencyFeatures = [
+    { title: 'Emergency Call', icon: <EmergencyCallIcon size={24} />, onPress: handleEmergencyCall, delay: 2000 },
+    { title: 'Share Medical Summary', icon: <MedicalSummaryIcon size={24} />, onPress: handleShareMedicalSummary, delay: 2200 },
+    { title: 'Request Home Visit', icon: <HomeVisitIcon size={24} />, onPress: handleRequestHomeVisit, delay: 2400 },
+  ];
+
+  const settings = [
+    { title: 'Voice Messages', description: 'Receive voice messages from ASHA worker', value: voiceEnabled, onValueChange: setVoiceEnabled, delay: 2600 },
+    { title: 'SMS Notifications', description: 'Get SMS updates and alerts', value: smsEnabled, onValueChange: setSmsEnabled, delay: 2800 },
+    { title: 'Hindi Language', description: 'Use Hindi for communication', value: languageHindi, onValueChange: setLanguageHindi, delay: 3000 },
+    { title: 'Family Notifications', description: 'Notify family members of updates', value: familyNotifications, onValueChange: setFamilyNotifications, delay: 3200 },
+    { title: 'Location Sharing', description: 'Share location for home visits', value: locationSharing, onValueChange: setLocationSharing, delay: 3400 },
+  ];
+
+  return (
+    <View style={styles.container}>
+      <StatusBar style="dark" backgroundColor={Colors.background} />
+      
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Header */}
+        <Animated.View style={[styles.header, animatedHeaderStyle]}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBackToDashboard}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>ASHA Worker</Text>
+          <View style={styles.placeholder} />
+        </Animated.View>
+
+        {/* ASHA Worker Profile */}
+        <Animated.View style={[styles.profileCard, animatedProfileStyle]}>
+          <View style={styles.profileHeader}>
+            <View style={styles.avatarContainer}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>PS</Text>
+              </View>
+              <Animated.View style={[styles.statusIndicator, animatedStatusStyle]}>
+                <View style={[styles.statusDot, { backgroundColor: isOnline ? Colors.primary : Colors.textMuted }]} />
+              </Animated.View>
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.workerName}>Priya Sharma - ASHA Worker</Text>
+              <Text style={styles.workerStatus}>
+                {isOnline ? 'Online - Available for calls' : 'Offline'}
+              </Text>
+              <Text style={styles.workerSpecialization}>Postpartum care, C-section recovery</Text>
+              <View style={styles.ratingContainer}>
+                <Text style={styles.ratingText}>4.9/5</Text>
+                <Text style={styles.ratingSubtext}>(127 mothers helped)</Text>
+              </View>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Real-time Monitoring */}
+        <Animated.View style={[styles.monitoringSection, animatedProfileStyle]}>
+          <Text style={styles.sectionTitle}>Real-time Monitoring</Text>
+          <View style={styles.monitoringCard}>
+            <Text style={styles.monitoringText}>
+              <Text style={styles.monitoringBold}>Your Progress:</Text> Priya can see your recovery timeline and recent check-ins
+            </Text>
+            <Text style={styles.monitoringText}>
+              <Text style={styles.monitoringBold}>Alerts Shared:</Text> She receives notifications when you need help
+            </Text>
+            <Text style={styles.monitoringText}>
+              <Text style={styles.monitoringBold}>Medical History:</Text> She has access to your delivery details and current concerns
+            </Text>
+          </View>
+        </Animated.View>
+
+        {/* Communication Options */}
+        <View style={styles.communicationSection}>
+          <Text style={styles.sectionTitle}>Communication Options</Text>
+          <View style={styles.communicationGrid}>
+            {communicationOptions.map((option, index) => (
+              <CommunicationOption
+                key={index}
+                title={option.title}
+                icon={option.icon}
+                onPress={option.onPress}
+                type={option.type}
+                delay={option.delay}
+              />
+            ))}
+          </View>
+        </View>
+
+        {/* Emergency Features */}
+        <View style={styles.emergencySection}>
+          <Text style={styles.sectionTitle}>Emergency Features</Text>
+          {emergencyFeatures.map((feature, index) => (
+            <EmergencyFeature
+              key={index}
+              title={feature.title}
+              icon={feature.icon}
+              onPress={feature.onPress}
+              delay={feature.delay}
+            />
+          ))}
+        </View>
+
+        {/* Settings Section */}
+        <View style={styles.settingsSection}>
+          <Text style={styles.sectionTitle}>Settings</Text>
+          {settings.map((setting, index) => (
+            <SettingItem
+              key={index}
+              title={setting.title}
+              description={setting.description}
+              value={setting.value}
+              onValueChange={setting.onValueChange}
+              delay={setting.delay}
+            />
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 40,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  backButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  backButtonText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.primary,
+  },
+  title: {
+    fontSize: Typography.sizes.xl,
+    fontFamily: Typography.heading,
+    color: Colors.textPrimary,
+  },
+  placeholder: {
+    width: 60,
+  },
+  profileCard: {
+    backgroundColor: Colors.background,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    position: 'relative',
+    marginRight: 16,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: Typography.sizes.xl,
+    fontFamily: Typography.heading,
+    color: Colors.textPrimary,
+  },
+  statusIndicator: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: Colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  workerName: {
+    fontSize: Typography.sizes.lg,
+    fontFamily: Typography.heading,
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  workerStatus: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.primary,
+    marginBottom: 8,
+  },
+  workerSpecialization: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    marginBottom: 8,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.warning,
+    marginRight: 8,
+  },
+  ratingSubtext: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+  },
+  monitoringSection: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: Typography.sizes.lg,
+    fontFamily: Typography.heading,
+    color: Colors.textPrimary,
+    marginBottom: 16,
+  },
+  monitoringCard: {
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.secondary,
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  monitoringText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    marginBottom: 8,
+    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.sm,
+  },
+  monitoringBold: {
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.textPrimary,
+  },
+  communicationSection: {
+    marginBottom: 24,
+  },
+  communicationGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  communicationButton: {
+    width: (width - 60) / 2,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  primaryButton: {
+    backgroundColor: Colors.primary,
+  },
+  secondaryButton: {
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  emergencyButton: {
+    backgroundColor: Colors.danger,
+  },
+  communicationIcon: {
+    marginBottom: 8,
+  },
+  communicationText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.textPrimary,
+    textAlign: 'center',
+  },
+  emergencySection: {
+    marginBottom: 24,
+  },
+  emergencyFeatureButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.danger,
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  emergencyFeatureIcon: {
+    marginRight: 16,
+  },
+  emergencyFeatureText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.textPrimary,
+    flex: 1,
+  },
+  settingsSection: {
+    marginBottom: 24,
+  },
+  settingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  settingContent: {
+    flex: 1,
+    marginRight: 16,
+  },
+  settingTitle: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  settingDescription: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.sm,
+  },
+});
