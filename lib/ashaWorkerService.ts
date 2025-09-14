@@ -138,17 +138,15 @@ export class ASHAWorkerService {
   }
 
   // Record and send voice message
-  static async recordVoiceMessage(userId: string, ashaWorkerId: string): Promise<VoiceMessage | null> {
+  static async recordVoiceMessage(userId: string, ashaWorkerId: string, transcript?: string, audioUrl?: string, duration?: number): Promise<VoiceMessage | null> {
     try {
-      // Voice recording functionality removed for clean demo
-      // For now, we'll simulate the process
       const voiceMessage: VoiceMessage = {
         id: `vm_${Date.now()}`,
         userId,
         ashaWorkerId,
-        audioUrl: `file://voice_message_${Date.now()}.m4a`,
-        transcript: 'Voice message recorded successfully',
-        duration: 30,
+        audioUrl: audioUrl || `file://voice_message_${Date.now()}.m4a`,
+        transcript: transcript || 'Voice message recorded successfully',
+        duration: duration || 30,
         timestamp: new Date().toISOString(),
         isRead: false
       };

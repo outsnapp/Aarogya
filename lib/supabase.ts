@@ -134,7 +134,12 @@ export interface Database {
           name: string;
           relationship: string;
           phone: string;
+          email?: string | null;
+          type?: string | null;
+          is_emergency_contact?: boolean | null;
           is_primary: boolean;
+          can_receive_updates?: boolean | null;
+          can_receive_emergency_alerts?: boolean | null;
           created_at: string;
         };
         Insert: {
@@ -143,7 +148,12 @@ export interface Database {
           name: string;
           relationship: string;
           phone: string;
+          email?: string | null;
+          type?: string | null;
+          is_emergency_contact?: boolean | null;
           is_primary?: boolean;
+          can_receive_updates?: boolean | null;
+          can_receive_emergency_alerts?: boolean | null;
           created_at?: string;
         };
         Update: {
@@ -152,7 +162,12 @@ export interface Database {
           name?: string;
           relationship?: string;
           phone?: string;
+          email?: string | null;
+          type?: string | null;
+          is_emergency_contact?: boolean | null;
           is_primary?: boolean;
+          can_receive_updates?: boolean | null;
+          can_receive_emergency_alerts?: boolean | null;
           created_at?: string;
         };
       };

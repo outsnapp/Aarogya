@@ -44,6 +44,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Clear all authentication data
+  const clearAuthData = async () => {
+    try {
+      // Clear all onboarding status entries
+      const keys = await AsyncStorage.getAllKeys();
+      const onboardingKeys = keys.filter(key => key.startsWith('onboarding_completed_'));
+      if (onboardingKeys.length > 0) {
+        await AsyncStorage.multiRemove(onboardingKeys);
+      }
+      
+      // Clear any other auth-related storage
+      await AsyncStorage.removeItem('supabase.auth.token');
+      await AsyncStorage.removeItem('supabase.auth.refresh_token');
+      
+      console.log('🧹 Cleared all authentication data');
+    } catch (error) {
+      console.error('Error clearing auth data:', error);
+    }
+  };
+
   // Load onboarding status from AsyncStorage
   const loadOnboardingStatus = async (userId: string): Promise<boolean | null> => {
     try {
@@ -68,29 +88,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserProfile(session.user.id);
+    // Get initial session with error handling
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.log('Session error (non-critical):', error.message);
+        // Clear any invalid session data
+        setSession(null);
+        setUser(null);
+        setUserProfile(null);
+        setOnboardingCompleted(false);
+      } else {
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          fetchUserProfile(session.user.id);
+        }
       }
+      setLoading(false);
+    }).catch((error) => {
+      console.log('Session fetch error (non-critical):', error.message);
+      // Clear any invalid session data
+      setSession(null);
+      setUser(null);
+      setUserProfile(null);
+      setOnboardingCompleted(false);
       setLoading(false);
     });
 
-    // Listen for auth changes
+    // Listen for auth changes with error handling
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
-        setSession(session);
-        setUser(session?.user ?? null);
         
-        if (session?.user) {
-          await fetchUserProfile(session.user.id);
-        } else {
-          setUserProfile(null);
+        try {
+          setSession(session);
+          setUser(session?.user ?? null);
+          
+          if (session?.user) {
+            await fetchUserProfile(session.user.id);
+          } else {
+            setUserProfile(null);
+            setOnboardingCompleted(false);
+            // Clear onboarding cache when user signs out
+            setOnboardingCache(new Map());
+          }
+        } catch (error) {
+          console.log('Auth state change error (non-critical):', error);
+          // Handle errors gracefully
+          if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+            setUserProfile(null);
+            setOnboardingCompleted(false);
+            setOnboardingCache(new Map());
+          }
+        } finally {
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
@@ -221,6 +273,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('✅ Explicitly marking onboarding as completed for user:', user.id);
       setOnboardingCompleted(true);
       await saveOnboardingStatus(user.id, true);
+      
+      // Clear the cache to force fresh data
+      setOnboardingCache(new Map());
+      
+      // Also refresh the user profile to ensure data is up to date
+      await fetchUserProfile(user.id);
+      
+      console.log('✅ Onboarding completion fully processed');
     } catch (error) {
       console.error('Error marking onboarding as completed:', error);
     }
@@ -291,20 +351,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       
+      // Always clear local state first
+      setSession(null);
+      setUser(null);
+      setUserProfile(null);
+      setOnboardingCompleted(false);
+      setOnboardingCache(new Map());
+      
+      // Clear all stored authentication data
+      await clearAuthData();
+      
+      // Then attempt to sign out from Supabase
       const { error } = await supabase.auth.signOut();
       
-      if (!error) {
-        setSession(null);
-        setUser(null);
-        setUserProfile(null);
-        setOnboardingCompleted(false);
-        // Clear onboarding cache
-        setOnboardingCache(new Map());
+      if (error) {
+        console.log('Sign out error (non-critical):', error.message);
+        // Even if Supabase signOut fails, we've already cleared local state
+        // This handles cases where refresh tokens are invalid
       }
       
-      return { error };
+      return { error: null }; // Always return success since we cleared local state
     } catch (error) {
-      return { error };
+      console.log('Sign out catch error (non-critical):', error);
+      // Even if there's an error, we've cleared local state
+      return { error: null };
     } finally {
       setLoading(false);
     }

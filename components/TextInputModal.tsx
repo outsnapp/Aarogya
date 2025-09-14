@@ -15,7 +15,8 @@ interface TextInputModalProps {
   onSubmit: (text: string) => void;
   placeholder: string;
   title: string;
-  inputType?: 'text' | 'phone' | 'date';
+  inputType?: 'text' | 'phone' | 'numeric' | 'date';
+  example?: string;
 }
 
 export default function TextInputModal({
@@ -25,6 +26,7 @@ export default function TextInputModal({
   placeholder,
   title,
   inputType = 'text',
+  example,
 }: TextInputModalProps) {
   const [inputText, setInputText] = useState('');
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -137,6 +139,11 @@ export default function TextInputModal({
                 onFocus={() => setIsKeyboardVisible(true)}
                 onBlur={() => setIsKeyboardVisible(false)}
               />
+              {example && (
+                <Text style={styles.exampleText}>
+                  Example: {example}
+                </Text>
+              )}
             </View>
 
             {/* Action Buttons */}
@@ -240,6 +247,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     minHeight: 48,
     textAlignVertical: 'top',
+  },
+  exampleText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   buttonContainer: {
     flexDirection: 'row',

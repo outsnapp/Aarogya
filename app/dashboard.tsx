@@ -357,7 +357,7 @@ export default function DashboardScreen() {
   }
 
   // Show empty state if no data and onboarding is not completed
-  if (!dashboardData && !onboardingCompleted) {
+  if (!dashboardData && !onboardingCompleted && !loading) {
     return (
       <View style={styles.container}>
         <StatusBar style="dark" backgroundColor={Colors.background} />
@@ -373,7 +373,7 @@ export default function DashboardScreen() {
   }
 
   // Show loading state if onboarding is completed but dashboard data is still loading
-  if (!dashboardData && onboardingCompleted) {
+  if (!dashboardData && (onboardingCompleted || loading)) {
     return (
       <View style={styles.container}>
         <StatusBar style="dark" backgroundColor={Colors.background} />
@@ -411,13 +411,17 @@ export default function DashboardScreen() {
               </Text>
               <Text style={styles.subGreeting}>How are you feeling today?</Text>
             </View>
-            <View style={styles.avatarContainer}>
+            <TouchableOpacity 
+              style={styles.avatarContainer}
+              onPress={() => router.push('/profile')}
+              activeOpacity={0.7}
+            >
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>
                   {DashboardService.getUserDisplayName(dashboardData?.userProfile).charAt(0).toUpperCase()}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           </View>
         </Animated.View>
 

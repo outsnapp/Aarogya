@@ -266,6 +266,34 @@ export default function AnonymousQuestionsScreen() {
   const categories = AnonymousQuestionsService.getCategories();
   const urgencyLevels = AnonymousQuestionsService.getUrgencyLevels();
 
+  // Common questions that new mothers frequently ask
+  const getCommonQuestions = () => [
+    {
+      id: '1',
+      title: 'How long will my bleeding last after delivery?',
+      category: 'Postpartum Recovery',
+      icon: '🩸',
+      answer: 'Postpartum bleeding (lochia) typically lasts 4-6 weeks. It starts heavy and red, then becomes lighter and changes to pink, then brown, and finally yellow-white. If bleeding is heavy (soaking a pad in 1 hour) or has a foul smell, contact your doctor immediately.',
+      urgency: 'normal' as const
+    },
+    {
+      id: '2',
+      title: 'When can I start exercising after C-section?',
+      category: 'Postpartum Recovery',
+      icon: '🏃‍♀️',
+      answer: 'After a C-section, you should wait 6-8 weeks before starting light exercise. Begin with gentle walking and pelvic floor exercises. Avoid heavy lifting, crunches, or high-impact activities until your doctor clears you. Listen to your body and start slowly.',
+      urgency: 'normal' as const
+    },
+    {
+      id: '3',
+      title: 'Is it normal to feel sad or overwhelmed?',
+      category: 'Mental Health',
+      icon: '😔',
+      answer: 'Yes, it\'s very common to feel emotional after delivery due to hormonal changes, sleep deprivation, and the huge life change. This is often called "baby blues" and usually lasts 1-2 weeks. If feelings persist longer or worsen, you may have postpartum depression and should seek help from your doctor.',
+      urgency: 'high' as const
+    }
+  ];
+
   useEffect(() => {
     // Header animation
     headerOpacity.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.quad) });
@@ -296,6 +324,29 @@ export default function AnonymousQuestionsScreen() {
 
   const handleAskNewQuestion = () => {
     setShowQuestionModal(true);
+  };
+
+  const handleCommonQuestionPress = (question: any) => {
+    Alert.alert(
+      question.title,
+      question.answer,
+      [
+        {
+          text: 'Ask Similar Question',
+          onPress: () => {
+            setNewQuestion(`I have a question similar to: "${question.title}"`);
+            setSelectedCategory(question.category);
+            setSelectedUrgency(question.urgency);
+            setShowQuestionModal(true);
+          }
+        },
+        {
+          text: 'OK',
+          style: 'default'
+        }
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleViewMyQuestions = () => {
@@ -503,6 +554,34 @@ export default function AnonymousQuestionsScreen() {
             <TouchableOpacity style={styles.textInputButton} onPress={handleAskNewQuestion}>
               <Text style={styles.textInputButtonText}>Type your question here...</Text>
             </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+        {/* Common Questions Section */}
+        <Animated.View style={[styles.section, animatedSectionStyle]}>
+          <Text style={styles.sectionTitle}>Common Questions</Text>
+          <View style={styles.commonQuestionsCard}>
+            <Text style={styles.commonQuestionsDescription}>
+              Here are some frequently asked questions by new mothers. Tap any question to see the answer.
+            </Text>
+            {getCommonQuestions().map((question, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.commonQuestionItem}
+                onPress={() => handleCommonQuestionPress(question)}
+              >
+                <View style={styles.commonQuestionIcon}>
+                  <Text style={styles.commonQuestionIconText}>{question.icon}</Text>
+                </View>
+                <View style={styles.commonQuestionContent}>
+                  <Text style={styles.commonQuestionTitle}>{question.title}</Text>
+                  <Text style={styles.commonQuestionCategory}>{question.category}</Text>
+                </View>
+                <View style={styles.commonQuestionArrow}>
+                  <Text style={styles.commonQuestionArrowText}>→</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
           </View>
         </Animated.View>
 
@@ -823,6 +902,72 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 4,
+  },
+  commonQuestionsCard: {
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.secondary,
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  commonQuestionsDescription: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  commonQuestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    marginBottom: 8,
+    backgroundColor: Colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.textMuted,
+  },
+  commonQuestionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  commonQuestionIconText: {
+    fontSize: 18,
+  },
+  commonQuestionContent: {
+    flex: 1,
+  },
+  commonQuestionTitle: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.heading,
+    color: Colors.textPrimary,
+    marginBottom: 2,
+    lineHeight: 20,
+  },
+  commonQuestionCategory: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+  },
+  commonQuestionArrow: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  commonQuestionArrowText: {
+    fontSize: 16,
+    color: Colors.textMuted,
   },
   askDescription: {
     fontSize: Typography.sizes.base,

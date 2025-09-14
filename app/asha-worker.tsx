@@ -16,7 +16,7 @@ import { Svg, Path, Circle, G } from 'react-native-svg';
 import { Colors, Typography } from '../constants/Colors';
 import { ASHAWorkerService, ASHAWorkerProfile } from '../lib/ashaWorkerService';
 import { useAuth } from '../contexts/AuthContext';
-// VoiceRecorder removed for clean demo
+import VoiceRecorder from '../components/VoiceRecorder';
 
 const { width } = Dimensions.get('window');
 
@@ -257,6 +257,8 @@ export default function ASHAWorkerScreen() {
   const [showHomeVisitModal, setShowHomeVisitModal] = useState(false);
   const [homeVisitReason, setHomeVisitReason] = useState('');
   const [monitoringData, setMonitoringData] = useState<any>(null);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
 
   // Animation values
   const headerOpacity = useSharedValue(0);
@@ -264,6 +266,8 @@ export default function ASHAWorkerScreen() {
   const statusPulse = useSharedValue(1);
   const profileOpacity = useSharedValue(0);
   const profileTranslateY = useSharedValue(30);
+  const voiceOpacity = useSharedValue(0);
+  const voiceTranslateY = useSharedValue(20);
 
   useEffect(() => {
     loadASHAWorkerData();
@@ -298,6 +302,16 @@ export default function ASHAWorkerScreen() {
           false
         );
       }
+
+      // Voice section animation
+      voiceOpacity.value = withDelay(
+        600,
+        withTiming(1, { duration: 600, easing: Easing.out(Easing.quad) })
+      );
+      voiceTranslateY.value = withDelay(
+        600,
+        withTiming(0, { duration: 600, easing: Easing.out(Easing.quad) })
+      );
     }
   }, [ashaWorkerProfile]);
 
@@ -317,7 +331,7 @@ export default function ASHAWorkerScreen() {
     try {
       const settings = await ASHAWorkerService.getSettings(user.id);
       if (settings) {
-        // voiceEnabled removed for clean demo
+        setVoiceEnabled(settings.voice_enabled);
         setSmsEnabled(settings.sms_enabled);
         setLanguageHindi(settings.language_hindi);
         setFamilyNotifications(settings.family_notifications);
@@ -344,7 +358,7 @@ export default function ASHAWorkerScreen() {
     
     try {
       await ASHAWorkerService.updateSettings(user.id, {
-        // voice_enabled removed for clean demo
+        voice_enabled: voiceEnabled,
         sms_enabled: smsEnabled,
         language_hindi: languageHindi,
         family_notifications: familyNotifications,
@@ -355,9 +369,49 @@ export default function ASHAWorkerScreen() {
     }
   };
 
+  const handleVoiceMessage = async (transcript: string) => {
+    if (!user?.id || !ashaWorkerProfile) return;
+
+    try {
+      const voiceMessage = await ASHAWorkerService.recordVoiceMessage(
+        user.id,
+        ashaWorkerProfile.id,
+        transcript
+      );
+
+      if (voiceMessage) {
+        Alert.alert(
+          'Voice Message Sent! 🎤',
+          'Your voice message has been sent to your ASHA worker. They will respond soon.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+      Alert.alert('Error', 'Failed to send voice message. Please try again.');
+    }
+  };
+
+  const handleVoiceStart = () => {
+    setIsRecording(true);
+  };
+
+  const handleVoiceStop = () => {
+    setIsRecording(false);
+  };
+
   const handleVoiceCall = async () => {
-    // Voice call removed for clean demo
-    Alert.alert('Voice Call', 'Voice call feature removed for clean demo.');
+    if (!ashaWorkerProfile) return;
+
+    try {
+      const success = await ASHAWorkerService.initiateVoiceCall(ashaWorkerProfile.phone);
+      if (!success) {
+        Alert.alert('Call Failed', 'Unable to initiate voice call. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error initiating voice call:', error);
+      Alert.alert('Error', 'Failed to initiate voice call.');
+    }
   };
 
   const handleVideoCall = async () => {
@@ -373,9 +427,8 @@ export default function ASHAWorkerScreen() {
     }
   };
 
-  const handleVoiceMessage = () => {
-    // Voice message removed for clean demo
-    Alert.alert('Voice Message', 'Voice message feature removed for clean demo.');
+  const handleVoiceMessagePress = () => {
+    setShowVoiceModal(true);
   };
 
   // Voice transcript handling removed for clean demo
@@ -452,7 +505,9 @@ export default function ASHAWorkerScreen() {
 
   const handleSettingChange = async (setting: string, value: boolean) => {
     switch (setting) {
-      // voice setting removed for clean demo
+      case 'voice':
+        setVoiceEnabled(value);
+        break;
       case 'sms':
         setSmsEnabled(value);
         break;
@@ -487,10 +542,15 @@ export default function ASHAWorkerScreen() {
     transform: [{ translateY: profileTranslateY.value }],
   }));
 
+  const animatedVoiceStyle = useAnimatedStyle(() => ({
+    opacity: voiceOpacity.value,
+    transform: [{ translateY: voiceTranslateY.value }],
+  }));
+
   const communicationOptions = [
     { title: 'Voice Call', icon: <VoiceCallIcon size={24} />, onPress: handleVoiceCall, type: 'primary' as const, delay: 1200 },
     { title: 'Video Call', icon: <VideoCallIcon size={24} />, onPress: handleVideoCall, type: 'secondary' as const, delay: 1400 },
-    { title: 'Send Voice Message', icon: <VoiceMessageIcon size={24} />, onPress: handleVoiceMessage, type: 'secondary' as const, delay: 1600 },
+    { title: 'Send Voice Message', icon: <VoiceMessageIcon size={24} />, onPress: handleVoiceMessagePress, type: 'secondary' as const, delay: 1600 },
     { title: 'Share Location', icon: <LocationIcon size={24} />, onPress: handleShareLocation, type: 'secondary' as const, delay: 1800 },
   ];
 
@@ -501,7 +561,7 @@ export default function ASHAWorkerScreen() {
   ];
 
   const settings = [
-    // Voice messages setting removed for clean demo
+    { title: 'Voice Messages', description: 'Enable voice message recording', value: voiceEnabled, onValueChange: (value: boolean) => handleSettingChange('voice', value), delay: 2600 },
     { title: 'SMS Notifications', description: 'Get SMS updates and alerts', value: smsEnabled, onValueChange: (value: boolean) => handleSettingChange('sms', value), delay: 2800 },
     { title: 'Hindi Language', description: 'Use Hindi for communication', value: languageHindi, onValueChange: (value: boolean) => handleSettingChange('hindi', value), delay: 3000 },
     { title: 'Family Notifications', description: 'Notify family members of updates', value: familyNotifications, onValueChange: (value: boolean) => handleSettingChange('family', value), delay: 3200 },
@@ -620,7 +680,21 @@ export default function ASHAWorkerScreen() {
         </View>
 
         {/* Voice Message Recording */}
-        {/* Voice recorder removed for clean demo */}
+        {voiceEnabled && (
+          <Animated.View style={[styles.voiceSection, animatedVoiceStyle]}>
+            <Text style={styles.voiceSectionTitle}>Send Voice Message</Text>
+            <Text style={styles.voiceSectionSubtitle}>
+              Record a voice message for your ASHA worker
+            </Text>
+            <VoiceRecorder
+              onTranscript={handleVoiceMessage}
+              onStart={handleVoiceStart}
+              onStop={handleVoiceStop}
+              isListening={isRecording}
+              disabled={!ashaWorkerProfile?.isOnline}
+            />
+          </Animated.View>
+        )}
       </ScrollView>
 
       {/* Home Visit Request Modal */}
@@ -1005,5 +1079,31 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.base,
     fontFamily: Typography.bodySemiBold,
     color: Colors.background,
+  },
+  voiceSection: {
+    backgroundColor: Colors.textLight,
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  voiceSectionTitle: {
+    fontSize: Typography.sizes.lg,
+    fontFamily: Typography.heading,
+    color: Colors.textPrimary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  voiceSectionSubtitle: {
+    fontSize: Typography.sizes.md,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginBottom: 20,
   },
 });

@@ -49,7 +49,12 @@ CREATE TABLE public.emergency_contacts (
     name TEXT NOT NULL,
     relationship TEXT NOT NULL,
     phone TEXT NOT NULL,
+    email TEXT,
+    type TEXT DEFAULT 'secondary',
+    is_emergency_contact BOOLEAN DEFAULT false,
     is_primary BOOLEAN DEFAULT false,
+    can_receive_updates BOOLEAN DEFAULT true,
+    can_receive_emergency_alerts BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

@@ -17,6 +17,7 @@ import { Colors, Typography } from '../constants/Colors';
 // VoiceRecorder removed for clean demo
 import { useAuth } from '../contexts/AuthContext';
 import { MotherHealthService, MotherHealthMetrics, DailyCheckIn, NutritionEntry, ExerciseEntry } from '../lib/motherHealthService';
+import { FoodAnalysisService, FoodNutrition } from '../lib/foodAnalysisService';
 
 const { width } = Dimensions.get('window');
 
@@ -378,6 +379,11 @@ export default function MotherHealthScreen() {
     food_items: ''
   });
   
+  const [foodInput, setFoodInput] = useState('');
+  const [isAnalyzingFood, setIsAnalyzingFood] = useState(false);
+  const [foodSuggestions, setFoodSuggestions] = useState<string[]>([]);
+  const [showFoodSuggestions, setShowFoodSuggestions] = useState(false);
+  
   const [exerciseData, setExerciseData] = useState({
     exercise_type: '',
     duration_minutes: 0,
@@ -518,6 +524,70 @@ export default function MotherHealthScreen() {
       console.error('Error saving nutrition entry:', error);
       Alert.alert('Error', 'Failed to save nutrition entry. Please try again.');
     }
+  };
+
+  const handleFoodInputChange = (text: string) => {
+    setFoodInput(text);
+    
+    // Show suggestions as user types
+    if (text.length > 1) {
+      const suggestions = FoodAnalysisService.searchFoods(text);
+      setFoodSuggestions(suggestions);
+      setShowFoodSuggestions(suggestions.length > 0);
+    } else {
+      setShowFoodSuggestions(false);
+    }
+  };
+
+  const handleAnalyzeFood = async () => {
+    if (!foodInput.trim()) {
+      Alert.alert('Error', 'Please enter a food name to analyze');
+      return;
+    }
+
+    setIsAnalyzingFood(true);
+    try {
+      const nutrition = await FoodAnalysisService.analyzeFood(foodInput.trim());
+      
+      // Update nutrition data with AI analysis
+      setNutritionData(prev => ({
+        ...prev,
+        calories: nutrition.calories,
+        protein_g: nutrition.protein_g,
+        iron_mg: nutrition.iron_mg,
+        calcium_mg: nutrition.calcium_mg,
+        food_items: nutrition.food_name
+      }));
+
+      // Show success message with confidence
+      const confidencePercent = Math.round(nutrition.confidence * 100);
+      Alert.alert(
+        'Food Analyzed! 🍽️',
+        `${nutrition.food_name} (${nutrition.serving_size})\n\n` +
+        `Calories: ${nutrition.calories}\n` +
+        `Protein: ${nutrition.protein_g}g\n` +
+        `Iron: ${nutrition.iron_mg}mg\n` +
+        `Calcium: ${nutrition.calcium_mg}mg\n\n` +
+        `Confidence: ${confidencePercent}%\n\n` +
+        `${nutrition.notes || ''}`,
+        [{ text: 'OK' }]
+      );
+      
+      // Clear food input
+      setFoodInput('');
+      setShowFoodSuggestions(false);
+    } catch (error) {
+      console.error('Error analyzing food:', error);
+      Alert.alert('Error', 'Failed to analyze food. Please try again or enter values manually.');
+    } finally {
+      setIsAnalyzingFood(false);
+    }
+  };
+
+  const handleSuggestionSelect = (suggestion: string) => {
+    setFoodInput(suggestion);
+    setShowFoodSuggestions(false);
+    handleAnalyzeFood();
   };
 
   const handleSubmitExercise = async () => {
@@ -1023,6 +1093,50 @@ export default function MotherHealthScreen() {
               keyboardType="numeric"
             />
             
+            {/* AI Food Analysis Section */}
+            <View style={styles.aiFoodSection}>
+              <Text style={styles.modalLabel}>🍽️ AI Food Analysis</Text>
+              <Text style={styles.aiFoodDescription}>
+                Type the food name and let AI calculate nutritional values automatically!
+              </Text>
+              
+              <View style={styles.foodInputContainer}>
+                <TextInput
+                  style={styles.foodInput}
+                  value={foodInput}
+                  onChangeText={handleFoodInputChange}
+                  placeholder="e.g., dal, rice, roti, chicken, eggs..."
+                  placeholderTextColor={Colors.textMuted}
+                />
+                <TouchableOpacity
+                  style={[styles.analyzeButton, isAnalyzingFood && styles.analyzeButtonDisabled]}
+                  onPress={handleAnalyzeFood}
+                  disabled={isAnalyzingFood}
+                >
+                  <Text style={styles.analyzeButtonText}>
+                    {isAnalyzingFood ? 'Analyzing...' : 'Analyze'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Food Suggestions */}
+              {showFoodSuggestions && foodSuggestions.length > 0 && (
+                <View style={styles.suggestionsContainer}>
+                  {foodSuggestions.map((suggestion, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.suggestionItem}
+                      onPress={() => handleSuggestionSelect(suggestion)}
+                    >
+                      <Text style={styles.suggestionText}>{suggestion}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              <Text style={styles.orText}>OR enter values manually below:</Text>
+            </View>
+
             <Text style={styles.modalLabel}>Food Items:</Text>
             <TextInput
               style={[styles.modalTextInput, styles.textArea]}
@@ -1664,6 +1778,76 @@ const styles = StyleSheet.create({
   textArea: {
     height: 80,
     textAlignVertical: 'top',
+  },
+  aiFoodSection: {
+    backgroundColor: Colors.primaryLight,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  aiFoodDescription: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  foodInputContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  foodInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.textMuted,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.background,
+  },
+  analyzeButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 80,
+  },
+  analyzeButtonDisabled: {
+    backgroundColor: Colors.textMuted,
+  },
+  analyzeButtonText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.background,
+  },
+  suggestionsContainer: {
+    backgroundColor: Colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.textMuted,
+    marginBottom: 12,
+    maxHeight: 120,
+  },
+  suggestionItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.textMuted,
+  },
+  orText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
   radioGroup: {
     flexDirection: 'row',

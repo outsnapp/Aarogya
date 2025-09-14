@@ -47,6 +47,13 @@ interface DatePickerModalProps {
   title: string;
 }
 
+interface DeliveryTypeModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSelect: (type: string) => void;
+  title: string;
+}
+
 // iOS-Style Scroll Dial Date Picker
 const DatePickerModal = ({ visible, onClose, onSelect, title }: DatePickerModalProps) => {
   const [selectedDay, setSelectedDay] = useState(1);
@@ -101,36 +108,60 @@ const DatePickerModal = ({ visible, onClose, onSelect, title }: DatePickerModalP
     selectedValue: any, 
     onValueChange: (value: any) => void,
     label: string 
-  }) => (
-    <View style={styles.scrollPickerContainer}>
-      <Text style={styles.scrollPickerLabel}>{label}</Text>
-      <ScrollView 
-        style={styles.scrollPicker}
-        showsVerticalScrollIndicator={false}
-        snapToInterval={40}
-        decelerationRate="fast"
-        contentContainerStyle={styles.scrollPickerContent}
-      >
-        {data.map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            style={[
-              styles.scrollPickerItem,
-              selectedValue === item && styles.scrollPickerItemSelected
-            ]}
-            onPress={() => onValueChange(item)}
-          >
-            <Text style={[
-              styles.scrollPickerItemText,
-              selectedValue === item && styles.scrollPickerItemTextSelected
-            ]}>
-              {item}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-    </View>
-  );
+  }) => {
+    const scrollViewRef = useRef<ScrollView>(null);
+    const [isScrolling, setIsScrolling] = useState(false);
+
+    const handleScroll = (event: any) => {
+      setIsScrolling(true);
+      const scrollY = event.nativeEvent.contentOffset.y;
+      const itemHeight = 40;
+      const index = Math.round(scrollY / itemHeight);
+      
+      if (index >= 0 && index < data.length) {
+        onValueChange(data[index]);
+      }
+    };
+
+    const handleScrollEnd = () => {
+      setIsScrolling(false);
+    };
+
+    return (
+      <View style={styles.scrollPickerContainer}>
+        <Text style={styles.scrollPickerLabel}>{label}</Text>
+        <ScrollView 
+          ref={scrollViewRef}
+          style={styles.scrollPicker}
+          showsVerticalScrollIndicator={false}
+          snapToInterval={40}
+          decelerationRate="fast"
+          contentContainerStyle={styles.scrollPickerContent}
+          onScroll={handleScroll}
+          onScrollEndDrag={handleScrollEnd}
+          onMomentumScrollEnd={handleScrollEnd}
+          scrollEventThrottle={16}
+        >
+          {data.map((item, index) => (
+            <View
+              key={index}
+              style={[
+                styles.scrollPickerItem,
+                selectedValue === item && styles.scrollPickerItemSelected
+              ]}
+            >
+              <Text style={[
+                styles.scrollPickerItemText,
+                selectedValue === item && styles.scrollPickerItemTextSelected
+              ]}>
+                {item}
+              </Text>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
 
   return (
     <Modal visible={visible} transparent animationType="none">
@@ -339,6 +370,79 @@ const GrowingTree = ({ progress }: { progress: number }) => {
   );
 };
 
+// Delivery Type Selection Modal
+const DeliveryTypeModal = ({ visible, onClose, onSelect, title }: DeliveryTypeModalProps) => {
+  const modalOpacity = useSharedValue(0);
+  const modalScale = useSharedValue(0.9);
+  const modalTranslateY = useSharedValue(50);
+
+  useEffect(() => {
+    if (visible) {
+      modalOpacity.value = withTiming(1, { duration: 400 });
+      modalScale.value = withSpring(1, { damping: 15, stiffness: 120 });
+      modalTranslateY.value = withSpring(0, { damping: 15, stiffness: 120 });
+    } else {
+      modalOpacity.value = withTiming(0, { duration: 300 });
+      modalScale.value = withTiming(0.9, { duration: 300 });
+      modalTranslateY.value = withTiming(50, { duration: 300 });
+    }
+  }, [visible]);
+
+  const deliveryTypes = [
+    { value: 'normal_delivery', label: 'Normal Delivery', description: 'Vaginal birth without complications' },
+    { value: 'c_section', label: 'C-Section', description: 'Cesarean section delivery' }
+  ];
+
+  const handleSelect = (type: string) => {
+    onSelect(type);
+    onClose();
+  };
+
+  const animatedModalStyle = useAnimatedStyle(() => ({
+    opacity: modalOpacity.value,
+    transform: [
+      { scale: modalScale.value },
+      { translateY: modalTranslateY.value }
+    ],
+  }));
+
+  return (
+    <Modal visible={visible} transparent animationType="none">
+      <View style={styles.modalOverlay}>
+        <Animated.View style={[styles.datePickerModal, animatedModalStyle]}>
+          <View style={styles.datePickerHeader}>
+            <TouchableOpacity onPress={onClose} style={styles.datePickerCancelButton}>
+              <Text style={styles.datePickerCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.datePickerTitle}>{title}</Text>
+            <View style={styles.datePickerConfirmButton} />
+          </View>
+          
+          <View style={styles.deliveryTypeContent}>
+            {deliveryTypes.map((type) => (
+              <TouchableOpacity
+                key={type.value}
+                style={styles.deliveryTypeOption}
+                onPress={() => handleSelect(type.value)}
+              >
+                <View style={styles.deliveryTypeInfo}>
+                  <Text style={styles.deliveryTypeLabel}>{type.label}</Text>
+                  <Text style={styles.deliveryTypeDescription}>{type.description}</Text>
+                </View>
+                <View style={styles.deliveryTypeIcon}>
+                  <Text style={styles.deliveryTypeIconText}>
+                    {type.value === 'normal_delivery' ? '👶' : '🏥'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
+
 // BMI Calculation Component
 const BMICalculator = ({ height, weight, onBmiCalculated }: { height: string; weight: string; onBmiCalculated: (bmi: number) => void }) => {
   useEffect(() => {
@@ -404,9 +508,9 @@ export default function OnboardingScreen() {
   const { user, updateProfile, checkOnboardingStatus, markOnboardingCompleted } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
-  const [isListening, setIsListening] = useState(false);
   const [showTextModal, setShowTextModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showDeliveryTypeModal, setShowDeliveryTypeModal] = useState(false);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({
     name: '',
     phone: '',
@@ -432,6 +536,23 @@ export default function OnboardingScreen() {
   const backgroundShift = useSharedValue(0);
 
   const totalSteps = 10; // Increased from 7 to 10
+
+  // Voice prompts for each step
+  const voicePrompts = [
+    'What should I call you?',
+    'What\'s your phone number?',
+    'When were you born?',
+    'How tall are you in centimeters?',
+    'What\'s your weight in kilograms?',
+    'When was your baby born?',
+    'How tall is your baby in centimeters?',
+    'What\'s your baby\'s weight in kilograms?',
+    'Does your baby have any medical conditions?',
+    'How did you deliver your baby?',
+    'Who is your emergency contact?',
+    'What language do you prefer?',
+    'Do you consent to voice and SMS features?'
+  ];
 
   // Voice prompts removed for clean demo
 
@@ -478,6 +599,11 @@ export default function OnboardingScreen() {
       // Explicitly mark onboarding as completed
       await markOnboardingCompleted();
 
+      // Wait a moment to ensure state is updated
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      console.log('🎉 Onboarding completion process finished');
+
       // Show completion message with BMI info
       const bmiStatus = getBmiStatus(onboardingData.motherBmi);
       Alert.alert(
@@ -487,6 +613,7 @@ export default function OnboardingScreen() {
           text: 'Continue', 
           onPress: () => {
             console.log('🎉 Onboarding completed successfully, navigating to dashboard');
+            // Navigate to dashboard
             router.replace('/dashboard');
           }
         }]
@@ -586,6 +713,16 @@ export default function OnboardingScreen() {
     }, 500);
   };
 
+  const handleDeliveryTypeSelect = (type: string) => {
+    setOnboardingData(prev => ({ ...prev, deliveryType: type }));
+    // Auto-advance after delivery type selection
+    setTimeout(() => {
+      if (currentStep < totalSteps) {
+        setCurrentStep(prev => prev + 1);
+      }
+    }, 500);
+  };
+
   const handleBmiCalculated = useCallback((bmi: number) => {
     setOnboardingData(prev => {
       // Only update if BMI has actually changed
@@ -607,6 +744,31 @@ export default function OnboardingScreen() {
         return 'numeric';
       default:
         return 'text';
+    }
+  };
+
+  const getExampleText = () => {
+    switch (currentStep) {
+      case 1:
+        return 'Priya Sharma';
+      case 2:
+        return '+91 98765 43210';
+      case 4:
+        return '165 cm';
+      case 5:
+        return '65 kg';
+      case 7:
+        return '50 cm';
+      case 8:
+        return '3.2 kg';
+      case 9:
+        return 'None or Jaundice (if any)';
+      case 11:
+        return 'Rajesh (Husband) - +91 98765 43210';
+      case 12:
+        return 'Hindi or English';
+      default:
+        return undefined;
     }
   };
 
@@ -651,9 +813,6 @@ export default function OnboardingScreen() {
     ],
   }));
 
-  const animatedVoiceStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: voicePulse.value }],
-  }));
 
   const animatedBackgroundStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: backgroundShift.value * 10 }],
@@ -700,6 +859,13 @@ export default function OnboardingScreen() {
                 onPress={() => setShowCalendar(true)}
               >
                 <Text style={styles.datePickerButtonText}>📅 Select Date</Text>
+              </TouchableOpacity>
+            ) : currentStep === 10 ? (
+              <TouchableOpacity 
+                style={styles.datePickerButton} 
+                onPress={() => setShowDeliveryTypeModal(true)}
+              >
+                <Text style={styles.datePickerButtonText}>🏥 Select Delivery Type</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={styles.fallbackButton} onPress={handleTextFallback}>
@@ -820,6 +986,7 @@ export default function OnboardingScreen() {
         placeholder={voicePrompts[currentStep - 1]}
         title={getModalTitle()}
         inputType={getInputType()}
+        example={getExampleText()}
       />
 
       {/* iOS-Style Date Picker Modal */}
@@ -828,6 +995,14 @@ export default function OnboardingScreen() {
         onClose={() => setShowCalendar(false)}
         onSelect={handleCalendarSelect}
         title={currentStep === 3 ? 'Your Date of Birth' : 'Baby\'s Date of Birth'}
+      />
+
+      {/* Delivery Type Selection Modal */}
+      <DeliveryTypeModal
+        visible={showDeliveryTypeModal}
+        onClose={() => setShowDeliveryTypeModal(false)}
+        onSelect={handleDeliveryTypeSelect}
+        title="How did you deliver your baby?"
       />
     </View>
   );
@@ -1115,6 +1290,43 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.lg,
     fontFamily: Typography.heading,
     color: Colors.primary,
+  },
+  deliveryTypeContent: {
+    padding: 20,
+  },
+  deliveryTypeOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    marginBottom: 12,
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.textMuted,
+  },
+  deliveryTypeInfo: {
+    flex: 1,
+  },
+  deliveryTypeLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  deliveryTypeDescription: {
+    fontSize: 14,
+    color: Colors.textMuted,
+  },
+  deliveryTypeIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deliveryTypeIconText: {
+    fontSize: 20,
   },
   datePickerPreview: {
     paddingHorizontal: 20,

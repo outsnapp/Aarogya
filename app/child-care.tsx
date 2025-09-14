@@ -198,6 +198,7 @@ export default function ChildCareScreen() {
     try {
       // Load baby profile
       const profile = await ChildCareService.getBabyProfile(user.id);
+      console.log('Baby profile loaded:', profile);
       setBabyProfile(profile);
       
       if (profile) {
@@ -209,6 +210,7 @@ export default function ChildCareScreen() {
           ChildCareService.getTodaysCheckIn(profile.id)
         ]);
         
+        console.log('Latest growth data:', growth);
         setLatestGrowth(growth);
         setMilestones(milestoneData);
         setRecentFeeding(feedingData);
@@ -220,6 +222,8 @@ export default function ChildCareScreen() {
           const assessment = ChildCareService.assessHealth(checkIn, ageInMonths);
           setHealthAssessment(assessment);
         }
+      } else {
+        console.log('No baby profile found for user:', user.id);
       }
     } catch (error) {
       console.error('Error loading baby data:', error);
@@ -502,22 +506,66 @@ export default function ChildCareScreen() {
         <Animated.View style={[styles.section, animatedSectionStyle]}>
           <Text style={styles.sectionTitle}>Growth Tracking</Text>
           <View style={styles.growthCard}>
-            <View style={styles.growthRow}>
-              <Text style={styles.growthLabel}>Current Weight:</Text>
-              <Text style={styles.growthValue}>{latestGrowth?.weight ? `${latestGrowth.weight} kg` : 'Not recorded'}</Text>
-            </View>
-            <View style={styles.growthRow}>
-              <Text style={styles.growthLabel}>Height:</Text>
-              <Text style={styles.growthValue}>{latestGrowth?.height ? `${latestGrowth.height} cm` : 'Not recorded'}</Text>
-            </View>
-            <View style={styles.growthRow}>
-              <Text style={styles.growthLabel}>Head Circumference:</Text>
-              <Text style={styles.growthValue}>{latestGrowth?.head_circumference ? `${latestGrowth.head_circumference} cm` : 'Not recorded'}</Text>
-            </View>
-            <View style={styles.growthRow}>
-              <Text style={styles.growthLabel}>Last Updated:</Text>
-              <Text style={styles.growthValue}>{latestGrowth ? new Date(latestGrowth.recorded_date).toLocaleDateString() : 'Never'}</Text>
-            </View>
+            {babyProfile ? (
+              <>
+                <View style={styles.growthRow}>
+                  <Text style={styles.growthLabel}>Current Weight:</Text>
+                  <Text style={styles.growthValue}>
+                    {latestGrowth?.weight 
+                      ? `${latestGrowth.weight} kg` 
+                      : babyProfile?.weight_kg 
+                        ? `${babyProfile.weight_kg} kg (from onboarding)` 
+                        : 'Not recorded'
+                    }
+                  </Text>
+                </View>
+                <View style={styles.growthRow}>
+                  <Text style={styles.growthLabel}>Height:</Text>
+                  <Text style={styles.growthValue}>
+                    {latestGrowth?.height 
+                      ? `${latestGrowth.height} cm` 
+                      : babyProfile?.height_cm 
+                        ? `${babyProfile.height_cm} cm (from onboarding)` 
+                        : 'Not recorded'
+                    }
+                  </Text>
+                </View>
+                <View style={styles.growthRow}>
+                  <Text style={styles.growthLabel}>Head Circumference:</Text>
+                  <Text style={styles.growthValue}>
+                    {latestGrowth?.head_circumference 
+                      ? `${latestGrowth.head_circumference} cm` 
+                      : 'Not recorded'
+                    }
+                  </Text>
+                </View>
+                <View style={styles.growthRow}>
+                  <Text style={styles.growthLabel}>Last Updated:</Text>
+                  <Text style={styles.growthValue}>
+                    {latestGrowth 
+                      ? new Date(latestGrowth.recorded_date).toLocaleDateString()
+                      : babyProfile?.weight_kg || babyProfile?.height_cm
+                        ? 'From onboarding'
+                        : 'Never'
+                    }
+                  </Text>
+                </View>
+                {!latestGrowth && (babyProfile?.weight_kg || babyProfile?.height_cm) && (
+                  <View style={styles.growthNote}>
+                    <Text style={styles.growthNoteText}>
+                      💡 Start tracking your baby's growth by adding new measurements!
+                    </Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No baby profile found</Text>
+                <Text style={styles.emptyStateSubtext}>
+                  Please complete onboarding to set up your baby's profile
+                </Text>
+              </View>
+            )}
           </View>
         </Animated.View>
 
@@ -1140,6 +1188,28 @@ const styles = StyleSheet.create({
     color: Colors.primary,
     textAlign: 'right',
     flex: 1,
+  },
+  growthNote: {
+    backgroundColor: Colors.primaryLight,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.primary,
+  },
+  growthNoteText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textPrimary,
+    lineHeight: 18,
+  },
+  emptyStateSubtext: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 18,
   },
   nutritionCard: {
     backgroundColor: Colors.background,
