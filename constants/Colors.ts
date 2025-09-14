@@ -10,6 +10,7 @@ export const Colors = {
   secondary: '#FFD1DC',         // Secondary (pastel pink) - warm maternal accent
   warning: '#FFE9A8',           // Warning (pastel amber)
   danger: '#FFB4AB',            // Danger (muted coral) - red-flag highlights
+  success: '#A8E6CF',           // Success (same as primary for consistency)
   
   // Text colors
   textPrimary: '#2F2F2F',       // Text primary

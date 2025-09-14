@@ -26,6 +26,8 @@ export default function RootLayout() {
         <Stack.Screen name="anonymous-questions" />
         <Stack.Screen name="mother-health" />
         <Stack.Screen name="multilingual-settings" />
+        <Stack.Screen name="notification-settings" />
+        <Stack.Screen name="profile" />
       </Stack>
     </AuthProvider>
   );

@@ -16,6 +16,8 @@ import { Svg, Circle, Path, G } from 'react-native-svg';
 import { Colors, Typography } from '../constants/Colors';
 import { useAuth } from '../contexts/AuthContext';
 import { DashboardService, DashboardData } from '../lib/dashboardService';
+import { ProgressGraph } from '../components/ProgressGraph';
+import { DailyCheckInModal } from '../components/DailyCheckInModal';
 
 const { width } = Dimensions.get('window');
 
@@ -140,6 +142,16 @@ const LanguageIcon = ({ size = 24 }: { size?: number }) => (
   </Svg>
 );
 
+const NotificationIcon = ({ size = 24 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path
+      d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"
+      fill={Colors.warning}
+    />
+    <Circle cx="18" cy="6" r="3" fill={Colors.danger} />
+  </Svg>
+);
+
 const SmartAlert = ({ type, message, delay }: SmartAlertProps) => {
   const alertOpacity = useSharedValue(0);
   const alertTranslateY = useSharedValue(20);
@@ -216,6 +228,12 @@ export default function DashboardScreen() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showMotherCheckIn, setShowMotherCheckIn] = useState(false);
+  const [showBabyCheckIn, setShowBabyCheckIn] = useState(false);
+  const [progressData, setProgressData] = useState<any>(null);
+
+  // Get baby profile from dashboard data
+  const babyProfile = dashboardData?.babyProfile;
 
   // Animation values
   const headerOpacity = useSharedValue(0);
@@ -251,6 +269,17 @@ export default function DashboardScreen() {
       Alert.alert('Error', 'Failed to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load progress data
+  const loadProgressData = async (userId: string, babyProfile: any) => {
+    try {
+      // TODO: Implement actual progress data loading
+      // For now, set empty data to prevent errors
+      setProgressData(null);
+    } catch (error) {
+      console.error('Error loading progress data:', error);
     }
   };
 
@@ -328,6 +357,10 @@ export default function DashboardScreen() {
     router.push('/multilingual-settings');
   };
 
+  const handleNotificationSettings = () => {
+    router.push('/notification-settings');
+  };
+
   const animatedHeaderStyle = useAnimatedStyle(() => ({
     opacity: headerOpacity.value,
     transform: [{ translateY: headerTranslateY.value }],
@@ -393,8 +426,9 @@ export default function DashboardScreen() {
     { title: 'Anonymous Q&A', icon: <AnonymousIcon size={28} />, onPress: handleAnonymousQuestions, delay: 3300 },
     { title: 'Mother Health', icon: <HealthIcon size={28} />, onPress: handleMotherHealth, delay: 3600 },
     { title: 'Language Settings', icon: <LanguageIcon size={28} />, onPress: handleMultilingualSettings, delay: 3900 },
-    { title: 'Family Network', icon: <FamilyIcon size={28} />, onPress: handleFamilyNetwork, delay: 4200 },
-    { title: 'Emergency', icon: <EmergencyIcon size={28} />, onPress: handleEmergency, delay: 4500 },
+    { title: 'Notifications', icon: <NotificationIcon size={28} />, onPress: handleNotificationSettings, delay: 4200 },
+    { title: 'Family Network', icon: <FamilyIcon size={28} />, onPress: handleFamilyNetwork, delay: 4500 },
+    { title: 'Emergency', icon: <EmergencyIcon size={28} />, onPress: handleEmergency, delay: 4800 },
   ];
 
   return (
@@ -508,6 +542,85 @@ export default function DashboardScreen() {
           </View>
         )}
 
+        {/* Daily Check-in Tabs */}
+        <View style={styles.checkInSection}>
+          <Text style={styles.sectionTitle}>Daily Check-ins</Text>
+          <View style={styles.checkInTabs}>
+            <TouchableOpacity 
+              style={styles.checkInTab}
+              onPress={() => setShowMotherCheckIn(true)}
+            >
+              <Text style={styles.checkInTabIcon}>👩‍⚕️</Text>
+              <Text style={styles.checkInTabTitle}>Mother's Health</Text>
+              <Text style={styles.checkInTabSubtitle}>Track your recovery</Text>
+            </TouchableOpacity>
+            
+            {babyProfile && (
+              <TouchableOpacity 
+                style={styles.checkInTab}
+                onPress={() => setShowBabyCheckIn(true)}
+              >
+                <Text style={styles.checkInTabIcon}>👶</Text>
+                <Text style={styles.checkInTabTitle}>Baby's Progress</Text>
+                <Text style={styles.checkInTabSubtitle}>Monitor growth</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Progress Graphs */}
+        {progressData && (
+          <View style={styles.progressSection}>
+            <Text style={styles.sectionTitle}>Progress Tracking</Text>
+            
+            {/* Mother's Health Progress */}
+            {progressData.healthMetrics && progressData.healthMetrics.length > 0 && (
+              <ProgressGraph
+                title="Energy Level Trend"
+                data={progressData.healthMetrics.map((metric: any, index: number) => ({
+                  date: metric.created_at,
+                  value: metric.energy_level || 0,
+                  label: `Day ${index + 1}`
+                }))}
+                maxValue={10}
+                minValue={1}
+                color={Colors.primary}
+                unit="/10"
+              />
+            )}
+
+            {progressData.healthMetrics && progressData.healthMetrics.length > 0 && (
+              <ProgressGraph
+                title="Mood Score Trend"
+                data={progressData.healthMetrics.map((metric: any, index: number) => ({
+                  date: metric.created_at,
+                  value: metric.mood_score || 0,
+                  label: `Day ${index + 1}`
+                }))}
+                maxValue={10}
+                minValue={1}
+                color={Colors.secondary}
+                unit="/10"
+              />
+            )}
+
+            {progressData.healthMetrics && progressData.healthMetrics.length > 0 && (
+              <ProgressGraph
+                title="Sleep Hours Trend"
+                data={progressData.healthMetrics.map((metric: any, index: number) => ({
+                  date: metric.created_at,
+                  value: metric.sleep_hours || 0,
+                  label: `Day ${index + 1}`
+                }))}
+                maxValue={12}
+                minValue={0}
+                color={Colors.warning}
+                unit="h"
+              />
+            )}
+          </View>
+        )}
+
         {/* Quick Actions */}
         <View style={styles.actionsSection}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -524,6 +637,30 @@ export default function DashboardScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Daily Check-in Modals */}
+      <DailyCheckInModal
+        visible={showMotherCheckIn}
+        onClose={() => setShowMotherCheckIn(false)}
+        type="mother"
+        userId={user?.id || ''}
+        onSuccess={() => {
+          loadDashboardData();
+          loadProgressData(user?.id || '', dashboardData?.babyProfile);
+        }}
+      />
+
+      <DailyCheckInModal
+        visible={showBabyCheckIn}
+        onClose={() => setShowBabyCheckIn(false)}
+        type="baby"
+        userId={user?.id || ''}
+        babyId={babyProfile?.id}
+        onSuccess={() => {
+          loadDashboardData();
+          loadProgressData(user?.id || '', dashboardData?.babyProfile);
+        }}
+      />
     </View>
   );
 }
@@ -792,6 +929,47 @@ const styles = StyleSheet.create({
     fontFamily: Typography.bodySemiBold,
     color: Colors.background,
     textAlign: 'center',
+  },
+  checkInSection: {
+    marginBottom: 24,
+  },
+  checkInTabs: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  checkInTab: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+  },
+  checkInTabIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  checkInTabTitle: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.textPrimary,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  checkInTabSubtitle: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    textAlign: 'center',
+  },
+  progressSection: {
+    marginBottom: 24,
   },
 });
 

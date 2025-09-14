@@ -212,7 +212,10 @@ export class FamilyNetworkService {
           relationship: contactData.relationship,
           phone: contactData.phone,
           email: contactData.email,
-          is_emergency: contactData.is_emergency_contact
+          type: contactData.type,
+          is_emergency_contact: contactData.is_emergency_contact,
+          can_receive_updates: contactData.can_receive_updates,
+          can_receive_emergency_alerts: contactData.can_receive_emergency_alerts
         }])
         .select()
         .single();
@@ -258,7 +261,10 @@ export class FamilyNetworkService {
           relationship: updates.relationship,
           phone: updates.phone,
           email: updates.email,
-          is_emergency: updates.is_emergency_contact
+          type: updates.type,
+          is_emergency_contact: updates.is_emergency_contact,
+          can_receive_updates: updates.can_receive_updates,
+          can_receive_emergency_alerts: updates.can_receive_emergency_alerts
         })
         .eq('id', contactId);
 
