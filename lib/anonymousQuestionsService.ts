@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { AIService } from './aiService';
 
 export interface AnonymousQuestion {
   id: string;
@@ -286,7 +287,19 @@ export class AnonymousQuestionsService {
   // Generate AI response for a question
   static async generateAIResponse(question: string, category: string): Promise<AIResponse | null> {
     try {
-      // Simulate AI response generation based on category and question content
+      // Use AI service for intelligent responses
+      const aiResponse = await AIService.generateAnonymousQuestionResponse(question);
+      
+      if (aiResponse) {
+        return {
+          response: aiResponse,
+          confidence: 0.9,
+          suggestions: this.extractSuggestions(aiResponse),
+          followUpQuestions: this.generateFollowUpQuestions(category, question),
+        };
+      }
+      
+      // Fallback to category-based responses if AI fails
       const responses = this.getCategoryBasedResponses(category, question);
       const randomResponse = responses[Math.floor(Math.random() * responses.length)];
       
@@ -300,6 +313,60 @@ export class AnonymousQuestionsService {
       console.error('Error generating AI response:', error);
       return null;
     }
+  }
+
+  // Extract suggestions from AI response
+  private static extractSuggestions(aiResponse: string): string[] {
+    const suggestions = [];
+    const lines = aiResponse.split('\n');
+    
+    for (const line of lines) {
+      if (line.includes('•') || line.includes('-') || line.includes('1.') || line.includes('2.')) {
+        const suggestion = line.replace(/^[•\-\d\.\s]+/, '').trim();
+        if (suggestion && suggestion.length > 10) {
+          suggestions.push(suggestion);
+        }
+      }
+    }
+    
+    return suggestions.slice(0, 3); // Limit to 3 suggestions
+  }
+
+  // Generate follow-up questions based on category and original question
+  private static generateFollowUpQuestions(category: string, question: string): string[] {
+    const followUps = [];
+    
+    switch (category) {
+      case 'Postpartum Concerns':
+        followUps.push(
+          "How long have you been experiencing these symptoms?",
+          "Have you discussed this with your healthcare provider?",
+          "What self-care strategies have you tried so far?"
+        );
+        break;
+      case 'Baby Care':
+        followUps.push(
+          "How old is your baby?",
+          "Have you noticed any other concerning symptoms?",
+          "What does your pediatrician recommend?"
+        );
+        break;
+      case 'Nutrition':
+        followUps.push(
+          "Are you currently breastfeeding?",
+          "Do you have any dietary restrictions?",
+          "What does your current diet look like?"
+        );
+        break;
+      default:
+        followUps.push(
+          "Can you provide more details about your situation?",
+          "How long have you been experiencing this?",
+          "Have you consulted with a healthcare professional?"
+        );
+    }
+    
+    return followUps.slice(0, 2); // Limit to 2 follow-up questions
   }
 
   // Get category-based responses

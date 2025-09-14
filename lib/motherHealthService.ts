@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { AIService } from './aiService';
 
 export interface MotherHealthMetrics {
   id?: string;
@@ -272,86 +273,22 @@ export class MotherHealthService {
     }
   }
 
-  // Health Insights - Generate locally since ai_insights table doesn't exist
+  // Health Insights - Use AI service for intelligent insights
   static async getHealthInsights(userId: string, limit: number = 5) {
     try {
-      // Generate insights based on recent health data
-      const healthMetrics = await this.getRecentHealthMetrics(userId, 7);
-      const nutritionEntries = await this.getRecentNutritionEntries(userId, 7);
-      
-      const insights = [];
-      
-      if (healthMetrics.length > 0) {
-        const latest = healthMetrics[0];
-        
-        // Weight trend insight
-        if (healthMetrics.length >= 2) {
-          const weightChange = (latest.weight || 0) - (healthMetrics[1].weight || 0);
-          if (Math.abs(weightChange) > 1) {
-            insights.push({
-              id: 'weight-trend',
-              user_id: userId,
-              category: 'mother_health',
-              title: 'Weight Change Detected',
-              description: `Your weight has changed by ${weightChange.toFixed(1)}kg recently.`,
-              recommendation: weightChange > 0 ? 'Consider reviewing your diet and exercise routine.' : 'Ensure you\'re maintaining adequate nutrition.',
-              priority: 'medium',
-              created_at: new Date().toISOString()
-            });
-          }
-        }
-        
-        // Energy level insight
-        if (latest.energy_level && latest.energy_level < 6) {
-          insights.push({
-            id: 'energy-low',
-            user_id: userId,
-            category: 'mother_health',
-            title: 'Low Energy Level',
-            description: 'Your recent energy levels have been below optimal.',
-            recommendation: 'Focus on getting adequate sleep, nutrition, and gentle exercise.',
-            priority: 'medium',
-            created_at: new Date().toISOString()
-          });
-        }
-        
-        // Sleep insight
-        if (latest.sleep_hours && latest.sleep_hours < 7) {
-          insights.push({
-            id: 'sleep-insufficient',
-            user_id: userId,
-            category: 'mother_health',
-            title: 'Insufficient Sleep',
-            description: 'You may not be getting enough sleep.',
-            recommendation: 'Aim for 7-9 hours of quality sleep per night.',
-            priority: 'high',
-            created_at: new Date().toISOString()
-          });
-        }
+      // First try to get existing AI insights
+      const existingInsights = await AIService.getAIInsights(userId, limit);
+      if (existingInsights.length > 0) {
+        return existingInsights;
       }
+
+      // If no existing insights, generate new ones using AI
+      const healthData = await this.getMotherHealthData(userId);
+      const aiInsights = await AIService.generateMotherHealthInsights(userId, healthData);
       
-      // Nutrition insights
-      if (nutritionEntries.length > 0) {
-        const totalCalories = nutritionEntries.reduce((sum, entry) => sum + (entry.calories || 0), 0);
-        const avgCalories = totalCalories / nutritionEntries.length;
-        
-        if (avgCalories < 1800) {
-          insights.push({
-            id: 'nutrition-low',
-            user_id: userId,
-            category: 'mother_health',
-            title: 'Low Calorie Intake',
-            description: 'Your daily calorie intake may be too low.',
-            recommendation: 'Ensure you\'re eating enough to support your health and recovery.',
-            priority: 'medium',
-            created_at: new Date().toISOString()
-          });
-        }
-      }
-      
-      return insights.slice(0, limit);
+      return aiInsights.slice(0, limit);
     } catch (error) {
-      console.error('Error generating health insights:', error);
+      console.error('Error getting health insights:', error);
       return [];
     }
   }

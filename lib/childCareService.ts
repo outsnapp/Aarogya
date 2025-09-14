@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { AIService } from './aiService';
 
 export interface BabyProfile {
   id: string;
@@ -437,6 +438,39 @@ export class ChildCareService {
     } catch (error) {
       console.error('Error fetching today\'s check-in:', error);
       return null;
+    }
+  }
+
+  // Get comprehensive baby care data with AI insights
+  static async getBabyCareDataWithAI(userId: string) {
+    try {
+      const [babyProfile, milestones, recentFeedings, latestGrowth, todayCheckIn] = await Promise.all([
+        this.getBabyProfile(userId),
+        this.getMilestones(userId),
+        this.getRecentFeeding(userId),
+        this.getLatestGrowth(userId),
+        this.getTodaysCheckIn(userId)
+      ]);
+
+      const babyData = {
+        babyProfile,
+        milestones,
+        recentFeedings,
+        latestGrowth,
+        todayCheckIn
+      };
+
+      // Generate AI insights for baby health
+      const aiInsights = await AIService.generateBabyHealthInsights(userId, babyData);
+
+      return {
+        ...babyData,
+        aiAssessment: todayCheckIn ? this.assessHealth(todayCheckIn, this.getBabyAge(babyProfile)) : null,
+        aiInsights
+      };
+    } catch (error) {
+      console.error('Error fetching baby care data with AI:', error);
+      throw error;
     }
   }
 }

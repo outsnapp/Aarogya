@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { AIService } from './aiService';
 
 export interface RecoveryMilestone {
   day: number;
@@ -457,9 +458,16 @@ export class RecoveryTimelineService {
         console.error('Error saving voice check-in:', saveError);
       }
 
-      // Simple AI analysis based on keywords
-      const analysis = this.analyzeTranscript(transcript);
-      const recommendations = this.generateRecommendations(transcript, analysis);
+      // Use AI service for intelligent analysis
+      const recoveryData = await this.getRecoveryTimelineData(userId);
+      const aiInsights = await AIService.generateRecoveryTimelineInsights(userId, {
+        ...recoveryData,
+        voiceTranscript: transcript
+      });
+
+      // Extract analysis from AI insights
+      const analysis = aiInsights.length > 0 ? aiInsights[0].description : this.analyzeTranscript(transcript);
+      const recommendations = aiInsights.length > 0 ? [aiInsights[0].recommendation] : this.generateRecommendations(transcript, analysis);
       const riskLevel = this.assessRiskLevel(transcript, analysis);
 
       // Update the voice check-in with analysis
