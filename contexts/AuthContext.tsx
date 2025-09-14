@@ -71,8 +71,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const stored = await AsyncStorage.getItem(key);
       if (stored) {
         const data = JSON.parse(stored);
-        // Check if the data is not too old (24 hours)
-        const isRecent = (Date.now() - data.timestamp) < (24 * 60 * 60 * 1000);
+        // Check if the data is not too old (7 days for onboarding completion)
+        const isRecent = (Date.now() - data.timestamp) < (7 * 24 * 60 * 60 * 1000);
         if (isRecent) {
           console.log('📱 Loaded onboarding status from storage:', { userId, completed: data.completed });
           return data.completed;
@@ -175,21 +175,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Check if onboarding is completed based on profile data
       if (data) {
-        // Only check database if we don't have cached status
-        if (cachedStatus === null) {
-          const isCompleted = await checkIfOnboardingCompleted(data);
-          setOnboardingCompleted(isCompleted);
-          // Save to cache for future use
-          await saveOnboardingStatus(userId, isCompleted);
-        } else {
-          // Verify cached status is still accurate
-          const isCompleted = await checkIfOnboardingCompleted(data);
-          if (isCompleted !== cachedStatus) {
-            console.log('🔄 Cached status outdated, updating:', { cached: cachedStatus, actual: isCompleted });
-            setOnboardingCompleted(isCompleted);
-            await saveOnboardingStatus(userId, isCompleted);
-          }
-        }
+        // Always check the onboarding status, but prioritize cached results
+        const isCompleted = await checkIfOnboardingCompleted(data);
+        setOnboardingCompleted(isCompleted);
+        console.log('🎯 Final onboarding status set:', isCompleted);
       } else {
         setOnboardingCompleted(false);
         await saveOnboardingStatus(userId, false);
@@ -202,6 +191,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkIfOnboardingCompleted = async (profile: UserProfile): Promise<boolean> => {
     console.log('🔍 Checking onboarding completion for user:', profile.id);
+    
+    // First check if we have explicitly marked onboarding as completed
+    const cachedStatus = await loadOnboardingStatus(profile.id);
+    if (cachedStatus === true) {
+      console.log('✅ Found cached completion status - onboarding is completed');
+      return true;
+    }
     
     // Check if essential onboarding fields are filled
     const hasBasicProfile = !!(
@@ -226,8 +222,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    // Basic profile is complete - baby profile is optional and can be added later
+    // Basic profile is complete - onboarding finished
     console.log('✅ Basic profile complete - onboarding finished');
+    // Cache this result so we don't need to check again
+    await saveOnboardingStatus(profile.id, true);
     return true;
   };
 
@@ -271,18 +269,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     try {
       console.log('✅ Explicitly marking onboarding as completed for user:', user.id);
+      
+      // Set the state immediately
       setOnboardingCompleted(true);
+      
+      // Save to cache with a longer timestamp to ensure persistence
       await saveOnboardingStatus(user.id, true);
       
-      // Clear the cache to force fresh data
-      setOnboardingCache(new Map());
+      // Update the cache map as well
+      const newCache = new Map(onboardingCache);
+      newCache.set(user.id, true);
+      setOnboardingCache(newCache);
       
-      // Also refresh the user profile to ensure data is up to date
-      await fetchUserProfile(user.id);
-      
-      console.log('✅ Onboarding completion fully processed');
+      console.log('✅ Onboarding completion fully processed and cached');
     } catch (error) {
       console.error('Error marking onboarding as completed:', error);
+      // Even if saving fails, keep the state as completed
+      setOnboardingCompleted(true);
     }
   };
 

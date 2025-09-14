@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert, ActivityIndicator, FlatList } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -231,6 +231,8 @@ export default function DashboardScreen() {
   const [showMotherCheckIn, setShowMotherCheckIn] = useState(false);
   const [showBabyCheckIn, setShowBabyCheckIn] = useState(false);
   const [progressData, setProgressData] = useState<any>(null);
+  const [activeHealthTab, setActiveHealthTab] = useState(0); // 0 for mother, 1 for baby
+  const healthScrollRef = useRef<FlatList>(null);
 
   // Get baby profile from dashboard data
   const babyProfile = dashboardData?.babyProfile;
@@ -554,27 +556,93 @@ export default function DashboardScreen() {
         {/* Daily Check-in Tabs */}
         <View style={styles.checkInSection}>
           <Text style={styles.sectionTitle}>Daily Check-ins</Text>
-          <View style={styles.checkInTabs}>
+          
+          {/* Tab Indicators */}
+          <View style={styles.tabIndicators}>
             <TouchableOpacity 
-              style={styles.checkInTab}
-              onPress={() => setShowMotherCheckIn(true)}
+              style={[styles.tabIndicator, activeHealthTab === 0 && styles.tabIndicatorActive]}
+              onPress={() => {
+                setActiveHealthTab(0);
+                healthScrollRef.current?.scrollToIndex({ index: 0, animated: true });
+              }}
             >
-              <Text style={styles.checkInTabIcon}>👩‍⚕️</Text>
-              <Text style={styles.checkInTabTitle}>Mother's Health</Text>
-              <Text style={styles.checkInTabSubtitle}>Track your recovery</Text>
+              <Text style={[styles.tabIndicatorText, activeHealthTab === 0 && styles.tabIndicatorTextActive]}>
+                Mother
+              </Text>
             </TouchableOpacity>
             
             {babyProfile && (
               <TouchableOpacity 
-                style={styles.checkInTab}
-                onPress={() => setShowBabyCheckIn(true)}
+                style={[styles.tabIndicator, activeHealthTab === 1 && styles.tabIndicatorActive]}
+                onPress={() => {
+                  setActiveHealthTab(1);
+                  healthScrollRef.current?.scrollToIndex({ index: 1, animated: true });
+                }}
               >
-                <Text style={styles.checkInTabIcon}>👶</Text>
-                <Text style={styles.checkInTabTitle}>Baby's Progress</Text>
-                <Text style={styles.checkInTabSubtitle}>Monitor growth</Text>
+                <Text style={[styles.tabIndicatorText, activeHealthTab === 1 && styles.tabIndicatorTextActive]}>
+                  Baby
+                </Text>
               </TouchableOpacity>
             )}
           </View>
+
+          {/* Swipeable Health Cards */}
+          <FlatList
+            ref={healthScrollRef}
+            data={babyProfile ? ['mother', 'baby'] : ['mother']}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item, index) => `health-${index}`}
+            onMomentumScrollEnd={(event) => {
+              const newIndex = Math.round(event.nativeEvent.contentOffset.x / width);
+              setActiveHealthTab(newIndex);
+            }}
+            renderItem={({ item, index }) => (
+              <View style={styles.healthCardContainer}>
+                {item === 'mother' ? (
+                  <TouchableOpacity 
+                    style={styles.checkInTab}
+                    onPress={() => setShowMotherCheckIn(true)}
+                  >
+                    <Text style={styles.checkInTabIcon}>👩‍⚕️</Text>
+                    <Text style={styles.checkInTabTitle}>Mother's Health</Text>
+                    <Text style={styles.checkInTabSubtitle}>Track your recovery journey</Text>
+                    <View style={styles.checkInStats}>
+                      <Text style={styles.checkInStatsText}>
+                        Recovery: {dashboardData?.recoveryProgress?.percentage || 0}%
+                      </Text>
+                      <Text style={styles.checkInStatsText}>
+                        Phase: {dashboardData?.recoveryProgress?.phase || 'Early Recovery'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity 
+                    style={styles.checkInTab}
+                    onPress={() => setShowBabyCheckIn(true)}
+                  >
+                    <Text style={styles.checkInTabIcon}>👶</Text>
+                    <Text style={styles.checkInTabTitle}>Baby's Progress</Text>
+                    <Text style={styles.checkInTabSubtitle}>Monitor growth & development</Text>
+                    <View style={styles.checkInStats}>
+                      <Text style={styles.checkInStatsText}>
+                        Age: {babyProfile?.ageInDays ? `${Math.floor(babyProfile.ageInDays / 7)} weeks` : 'New Born'}
+                      </Text>
+                      <Text style={styles.checkInStatsText}>
+                        Growth: Normal development
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          />
+          
+          {/* Swipe Hint */}
+          {babyProfile && (
+            <Text style={styles.swipeHint}>← Swipe to switch between Mother & Baby →</Text>
+          )}
         </View>
 
         {/* Progress Graphs */}
@@ -961,12 +1029,42 @@ const styles = StyleSheet.create({
   checkInSection: {
     marginBottom: 24,
   },
+  tabIndicators: {
+    flexDirection: 'row',
+    backgroundColor: Colors.primaryLight,
+    borderRadius: 25,
+    padding: 4,
+    marginBottom: 16,
+    alignSelf: 'center',
+  },
+  tabIndicator: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  tabIndicatorActive: {
+    backgroundColor: Colors.primary,
+  },
+  tabIndicatorText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.textMuted,
+  },
+  tabIndicatorTextActive: {
+    color: Colors.background,
+    fontFamily: Typography.bodySemiBold,
+  },
+  healthCardContainer: {
+    width: width - 40,
+    paddingHorizontal: 8,
+  },
   checkInTabs: {
     flexDirection: 'row',
     gap: 12,
   },
   checkInTab: {
-    flex: 1,
     backgroundColor: Colors.background,
     borderRadius: 16,
     padding: 20,
@@ -978,6 +1076,25 @@ const styles = StyleSheet.create({
     elevation: 6,
     borderWidth: 1,
     borderColor: Colors.primaryLight,
+    minHeight: 160,
+  },
+  checkInStats: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  checkInStatsText: {
+    fontSize: Typography.sizes.xs,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    marginBottom: 4,
+  },
+  swipeHint: {
+    fontSize: Typography.sizes.xs,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   checkInTabIcon: {
     fontSize: 32,

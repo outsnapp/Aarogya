@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, TextInput, Alert, PanResponder, Dimensions } from 'react-native';
 import { Colors, Typography } from '../constants/Colors';
 import { MotherHealthService, DailyCheckIn as MotherCheckIn } from '../lib/motherHealthService';
 import { ChildCareService, DailyCheckIn as BabyCheckIn } from '../lib/childCareService';
@@ -118,23 +118,43 @@ export const DailyCheckInModal: React.FC<DailyCheckInModalProps> = ({
     min: number = 1,
     max: number = 10,
     unit: string = ''
-  ) => (
-    <View style={styles.sliderContainer}>
-      <Text style={styles.sliderLabel}>{label}</Text>
-      <View style={styles.sliderRow}>
-        <Text style={styles.sliderMin}>{min}{unit}</Text>
-        <View style={styles.sliderTrack}>
-          <View style={[styles.sliderFill, { width: `${((value - min) / (max - min)) * 100}%` }]} />
-          <TouchableOpacity
-            style={[styles.sliderThumb, { left: `${((value - min) / (max - min)) * 100}%` }]}
-            onPress={() => {}} // Will be handled by gesture
-          />
+  ) => {
+    const sliderWidth = Dimensions.get('window').width - 104; // Account for padding and min/max labels
+    
+    const panResponder = PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        // Handle initial touch
+        handleSliderTouch(evt.nativeEvent.locationX);
+      },
+      onPanResponderMove: (evt) => {
+        // Handle drag
+        handleSliderTouch(evt.nativeEvent.locationX);
+      },
+    });
+
+    const handleSliderTouch = (locationX: number) => {
+      const percentage = Math.max(0, Math.min(1, locationX / sliderWidth));
+      const newValue = Math.round(min + percentage * (max - min));
+      onValueChange(newValue);
+    };
+
+    return (
+      <View style={styles.sliderContainer}>
+        <Text style={styles.sliderLabel}>{label}</Text>
+        <View style={styles.sliderRow}>
+          <Text style={styles.sliderMin}>{min}{unit}</Text>
+          <View style={styles.sliderTrack} {...panResponder.panHandlers}>
+            <View style={[styles.sliderFill, { width: `${((value - min) / (max - min)) * 100}%` }]} />
+            <View style={[styles.sliderThumb, { left: `${((value - min) / (max - min)) * 100}%` }]} />
+          </View>
+          <Text style={styles.sliderMax}>{max}{unit}</Text>
         </View>
-        <Text style={styles.sliderMax}>{max}{unit}</Text>
+        <Text style={styles.sliderValue}>{value}{unit}</Text>
       </View>
-      <Text style={styles.sliderValue}>{value}{unit}</Text>
-    </View>
-  );
+    );
+  };
 
   const renderMotherForm = () => (
     <ScrollView style={styles.formContainer}>
@@ -401,22 +421,30 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginHorizontal: 12,
     position: 'relative',
+    paddingVertical: 10, // Increase touch area
   },
   sliderFill: {
-    height: '100%',
+    height: 8,
     backgroundColor: Colors.primary,
     borderRadius: 4,
+    position: 'absolute',
+    top: 10,
   },
   sliderThumb: {
     position: 'absolute',
-    top: -6,
+    top: 4,
     width: 20,
     height: 20,
     backgroundColor: Colors.primary,
     borderRadius: 10,
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: Colors.background,
     marginLeft: -10,
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   sliderMax: {
     fontSize: Typography.sizes.sm,
