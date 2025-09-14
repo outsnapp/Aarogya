@@ -1146,7 +1146,7 @@ const styles = StyleSheet.create({
   babyInfoTitle: {
     fontSize: Typography.sizes.xl,
     fontFamily: Typography.heading,
-    color: Colors.textPrimary,
+    color: Colors.background,
     textAlign: 'center',
   },
   section: {
@@ -1185,7 +1185,7 @@ const styles = StyleSheet.create({
   growthValue: {
     fontSize: Typography.sizes.base,
     fontFamily: Typography.bodySemiBold,
-    color: Colors.primary,
+    color: Colors.textPrimary,
     textAlign: 'right',
     flex: 1,
   },
@@ -1238,7 +1238,7 @@ const styles = StyleSheet.create({
   nutritionValue: {
     fontSize: Typography.sizes.base,
     fontFamily: Typography.bodySemiBold,
-    color: Colors.secondary,
+    color: Colors.textPrimary,
     textAlign: 'right',
     flex: 1,
   },
@@ -1279,7 +1279,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: Typography.sizes.sm,
     fontFamily: Typography.bodySemiBold,
-    color: Colors.textPrimary,
+    color: Colors.background,
   },
   milestoneDescription: {
     fontSize: Typography.sizes.sm,
@@ -1320,7 +1320,7 @@ const styles = StyleSheet.create({
   exerciseValue: {
     fontSize: Typography.sizes.base,
     fontFamily: Typography.bodySemiBold,
-    color: Colors.warning,
+    color: Colors.textPrimary,
     textAlign: 'right',
     flex: 1,
   },
@@ -1351,7 +1351,7 @@ const styles = StyleSheet.create({
   healthValue: {
     fontSize: Typography.sizes.base,
     fontFamily: Typography.bodySemiBold,
-    color: Colors.primary,
+    color: Colors.textPrimary,
     textAlign: 'right',
     flex: 1,
   },
@@ -1432,6 +1432,7 @@ const styles = StyleSheet.create({
   healthStatus: {
     fontSize: Typography.sizes.sm,
     fontFamily: Typography.bodySemiBold,
+    color: Colors.background,
     textAlign: 'center',
   },
   // Check-in Card
@@ -1462,7 +1463,7 @@ const styles = StyleSheet.create({
   checkInValue: {
     fontSize: Typography.sizes.base,
     fontFamily: Typography.bodySemiBold,
-    color: Colors.primary,
+    color: Colors.textPrimary,
     textAlign: 'right',
     flex: 1,
   },
@@ -1517,7 +1518,7 @@ const styles = StyleSheet.create({
   recommendationsTitle: {
     fontSize: Typography.sizes.base,
     fontFamily: Typography.bodySemiBold,
-    color: Colors.primary,
+    color: Colors.textPrimary,
     marginBottom: 8,
   },
   recommendationText: {
@@ -1554,7 +1555,7 @@ const styles = StyleSheet.create({
   feedingValue: {
     fontSize: Typography.sizes.base,
     fontFamily: Typography.bodySemiBold,
-    color: Colors.secondary,
+    color: Colors.textPrimary,
     textAlign: 'right',
     flex: 1,
   },

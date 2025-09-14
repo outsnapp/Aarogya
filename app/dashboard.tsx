@@ -466,14 +466,23 @@ export default function DashboardScreen() {
           {/* Recovery Status - Only show if user has valid recovery data */}
           {dashboardData?.recoveryProgress.isActive && dashboardData.recoveryProgress.percentage > 0 && (
             <View style={styles.recoveryStatus}>
-              <Text style={styles.statusText}>
-                You're {dashboardData.recoveryProgress.percentage}% through your {dashboardData.recoveryProgress.phase.toLowerCase()}
-              </Text>
+              <View style={styles.recoveryHeader}>
+                <Text style={styles.statusText}>
+                  You're {dashboardData.recoveryProgress.percentage}% through your {dashboardData.recoveryProgress.phase.toLowerCase()}
+                </Text>
+                <Text style={styles.recoveryPercentage}>{dashboardData.recoveryProgress.percentage}%</Text>
+              </View>
               <View style={styles.progressContainer}>
                 <View style={styles.progressBackground}>
                   <Animated.View style={[styles.progressFill, animatedProgressStyle]} />
                 </View>
               </View>
+              <Text style={styles.recoveryDescription}>
+                {dashboardData.recoveryProgress.percentage < 25 ? 'Early healing phase - focus on rest' :
+                 dashboardData.recoveryProgress.percentage < 50 ? 'Building strength - gentle movement OK' :
+                 dashboardData.recoveryProgress.percentage < 75 ? 'Strong recovery - more activities allowed' :
+                 'Near complete recovery - almost back to normal'}
+              </Text>
             </View>
           )}
 
@@ -737,12 +746,31 @@ const styles = StyleSheet.create({
   recoveryStatus: {
     marginBottom: 20,
   },
+  recoveryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   statusText: {
-    fontSize: Typography.sizes.lg,
+    fontSize: Typography.sizes.base,
     fontFamily: Typography.bodyMedium,
     color: Colors.textPrimary,
-    marginBottom: 12,
+    flex: 1,
+  },
+  recoveryPercentage: {
+    fontSize: Typography.sizes.lg,
+    fontFamily: Typography.heading,
+    color: Colors.primary,
+    fontWeight: 'bold',
+  },
+  recoveryDescription: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
     textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   progressContainer: {
     alignItems: 'center',

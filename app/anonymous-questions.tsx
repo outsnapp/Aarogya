@@ -851,14 +851,14 @@ const styles = StyleSheet.create({
   privacyTitle: {
     fontSize: Typography.sizes.lg,
     fontFamily: Typography.heading,
-    color: Colors.textPrimary,
+    color: Colors.background,
     marginBottom: 8,
     textAlign: 'center',
   },
   privacyText: {
     fontSize: Typography.sizes.base,
     fontFamily: Typography.body,
-    color: Colors.textPrimary,
+    color: Colors.background,
     textAlign: 'center',
     opacity: 0.9,
   },
@@ -988,7 +988,7 @@ const styles = StyleSheet.create({
   textInputButtonText: {
     fontSize: Typography.sizes.base,
     fontFamily: Typography.body,
-    color: Colors.textMuted,
+    color: Colors.textPrimary,
     textAlign: 'center',
   },
   aiCard: {
@@ -1210,11 +1210,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
     borderRadius: 8,
     padding: 12,
-    borderWidth: 1,
-    borderColor: Colors.primaryLight,
+    borderWidth: 2,
+    borderColor: Colors.primary,
     fontSize: Typography.sizes.base,
     fontFamily: Typography.body,
-    color: Colors.textPrimary,
+    color: '#000000',
     textAlignVertical: 'top',
   },
   categoryScroll: {

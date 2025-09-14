@@ -12,7 +12,7 @@ import Animated, {
   withSpring,
   Easing,
 } from 'react-native-reanimated';
-import { Svg, Path, Circle, G, Rect } from 'react-native-svg';
+import { Svg, Path, Circle, G, Rect, Text as SvgText } from 'react-native-svg';
 
 import { Colors, Typography } from '../constants/Colors';
 // VoiceRecorder removed for clean demo
@@ -37,7 +37,7 @@ interface OnboardingData {
   deliveryType: string;
   emergencyContacts: string[];
   preferredLanguage: string;
-  // voiceSmsConsent removed for clean demo
+  voiceSmsConsent: boolean;
 }
 
 interface DatePickerModalProps {
@@ -95,10 +95,10 @@ const DatePickerModal = ({ visible, onClose, onSelect, title }: DatePickerModalP
     transform: [
       { scale: modalScale.value },
       { translateY: modalTranslateY.value }
-    ],
+    ] as any,
   }));
 
-  const ScrollPicker = ({ 
+  const SimplePicker = ({ 
     data, 
     selectedValue, 
     onValueChange, 
@@ -109,56 +109,57 @@ const DatePickerModal = ({ visible, onClose, onSelect, title }: DatePickerModalP
     onValueChange: (value: any) => void,
     label: string 
   }) => {
-    const scrollViewRef = useRef<ScrollView>(null);
-    const [isScrolling, setIsScrolling] = useState(false);
-
-    const handleScroll = (event: any) => {
-      setIsScrolling(true);
-      const scrollY = event.nativeEvent.contentOffset.y;
-      const itemHeight = 40;
-      const index = Math.round(scrollY / itemHeight);
-      
-      if (index >= 0 && index < data.length) {
-        onValueChange(data[index]);
-      }
-    };
-
-    const handleScrollEnd = () => {
-      setIsScrolling(false);
+    const [isOpen, setIsOpen] = useState(false);
+    
+    const handleSelect = (value: any) => {
+      onValueChange(value);
+      setIsOpen(false);
     };
 
     return (
-      <View style={styles.scrollPickerContainer}>
-        <Text style={styles.scrollPickerLabel}>{label}</Text>
-        <ScrollView 
-          ref={scrollViewRef}
-          style={styles.scrollPicker}
-          showsVerticalScrollIndicator={false}
-          snapToInterval={40}
-          decelerationRate="fast"
-          contentContainerStyle={styles.scrollPickerContent}
-          onScroll={handleScroll}
-          onScrollEndDrag={handleScrollEnd}
-          onMomentumScrollEnd={handleScrollEnd}
-          scrollEventThrottle={16}
+      <View style={styles.pickerContainer}>
+        <Text style={styles.pickerLabel}>{label}</Text>
+        <TouchableOpacity 
+          style={styles.pickerButton}
+          onPress={() => setIsOpen(true)}
+          activeOpacity={0.7}
         >
-          {data.map((item, index) => (
-            <View
-              key={index}
-              style={[
-                styles.scrollPickerItem,
-                selectedValue === item && styles.scrollPickerItemSelected
-              ]}
+          <Text style={styles.pickerButtonText}>{selectedValue}</Text>
+          <Text style={styles.pickerButtonArrow}>▼</Text>
+        </TouchableOpacity>
+        
+        {isOpen && (
+          <Modal transparent visible={isOpen} animationType="fade">
+            <TouchableOpacity 
+              style={styles.pickerOverlay}
+              activeOpacity={1}
+              onPress={() => setIsOpen(false)}
             >
-              <Text style={[
-                styles.scrollPickerItemText,
-                selectedValue === item && styles.scrollPickerItemTextSelected
-              ]}>
-                {item}
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
+              <View style={styles.pickerDropdown}>
+                <ScrollView style={styles.pickerScrollView} showsVerticalScrollIndicator={false}>
+                  {data.map((item, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.pickerOption,
+                        selectedValue === item && styles.pickerOptionSelected
+                      ]}
+                      onPress={() => handleSelect(item)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[
+                        styles.pickerOptionText,
+                        selectedValue === item && styles.pickerOptionTextSelected
+                      ]}>
+                        {item}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+        )}
       </View>
     );
   };
@@ -178,21 +179,20 @@ const DatePickerModal = ({ visible, onClose, onSelect, title }: DatePickerModalP
           </View>
           
           <View style={styles.datePickerContent}>
-            <View style={styles.datePickerSelectionIndicator} />
-            <View style={styles.scrollPickersRow}>
-              <ScrollPicker
+            <View style={styles.pickersRow}>
+              <SimplePicker
                 data={days}
                 selectedValue={selectedDay}
                 onValueChange={setSelectedDay}
                 label="Day"
               />
-              <ScrollPicker
+              <SimplePicker
                 data={months}
                 selectedValue={months[selectedMonth - 1]}
                 onValueChange={(month) => setSelectedMonth(months.indexOf(month) + 1)}
                 label="Month"
               />
-              <ScrollPicker
+              <SimplePicker
                 data={years}
                 selectedValue={selectedYear}
                 onValueChange={setSelectedYear}
@@ -238,7 +238,7 @@ const GrowingTree = ({ progress }: { progress: number }) => {
     transform: [
       { scale: treeScale.value },
       { rotate: `${branchRotation.value}deg` }
-    ],
+    ] as any,
   }));
 
   const animatedLeafStyle = useAnimatedStyle(() => ({
@@ -278,7 +278,7 @@ const GrowingTree = ({ progress }: { progress: number }) => {
           {progress >= 0 && (
             <G>
               <Circle cx="150" cy="390" r={12 + (progress * 8)} fill="#8B4513" opacity="0.8" />
-              <Text x="130" y="420" fontSize="16" fill={Colors.primary}>🌱</Text>
+              <SvgText x="130" y="420" fontSize="16" fill={Colors.primary}>🌱</SvgText>
             </G>
           )}
           
@@ -403,7 +403,7 @@ const DeliveryTypeModal = ({ visible, onClose, onSelect, title }: DeliveryTypeMo
     transform: [
       { scale: modalScale.value },
       { translateY: modalTranslateY.value }
-    ],
+    ] as any,
   }));
 
   return (
@@ -423,7 +423,12 @@ const DeliveryTypeModal = ({ visible, onClose, onSelect, title }: DeliveryTypeMo
               <TouchableOpacity
                 key={type.value}
                 style={styles.deliveryTypeOption}
-                onPress={() => handleSelect(type.value)}
+                onPress={() => {
+                  console.log('Delivery type selected:', type.value);
+                  handleSelect(type.value);
+                }}
+                activeOpacity={0.7}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <View style={styles.deliveryTypeInfo}>
                   <Text style={styles.deliveryTypeLabel}>{type.label}</Text>
@@ -493,7 +498,7 @@ const AnimatedCard = ({ children, delay = 0, style = {} }: { children: React.Rea
       { scale: cardScale.value },
       { perspective: 1000 },
       { rotateX: `${cardRotateX.value}deg` }
-    ],
+    ] as any,
   }));
 
   return (
@@ -510,7 +515,6 @@ export default function OnboardingScreen() {
   const [saving, setSaving] = useState(false);
   const [showTextModal, setShowTextModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [showDeliveryTypeModal, setShowDeliveryTypeModal] = useState(false);
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({
     name: '',
     phone: '',
@@ -525,7 +529,7 @@ export default function OnboardingScreen() {
     deliveryType: '',
     emergencyContacts: [],
     preferredLanguage: '',
-    // voiceSmsConsent removed for clean demo
+    voiceSmsConsent: false,
   });
 
   // Animation values
@@ -676,7 +680,17 @@ export default function OnboardingScreen() {
         setOnboardingData(prev => ({ ...prev, babyMedicalConditions: text }));
         break;
       case 10:
-        setOnboardingData(prev => ({ ...prev, deliveryType: text }));
+        // Smart delivery type processing
+        const normalizedText = text.toLowerCase().trim();
+        let deliveryType = text; // Default to original text
+        
+        if (normalizedText.includes('normal') || normalizedText.includes('vaginal') || normalizedText.includes('natural')) {
+          deliveryType = 'Normal Delivery';
+        } else if (normalizedText.includes('c section') || normalizedText.includes('cesarean') || normalizedText.includes('caesarean') || normalizedText.includes('c-section')) {
+          deliveryType = 'C-Section';
+        }
+        
+        setOnboardingData(prev => ({ ...prev, deliveryType: deliveryType }));
         break;
       case 11:
         setOnboardingData(prev => ({ 
@@ -713,15 +727,6 @@ export default function OnboardingScreen() {
     }, 500);
   };
 
-  const handleDeliveryTypeSelect = (type: string) => {
-    setOnboardingData(prev => ({ ...prev, deliveryType: type }));
-    // Auto-advance after delivery type selection
-    setTimeout(() => {
-      if (currentStep < totalSteps) {
-        setCurrentStep(prev => prev + 1);
-      }
-    }, 500);
-  };
 
   const handleBmiCalculated = useCallback((bmi: number) => {
     setOnboardingData(prev => {
@@ -810,12 +815,12 @@ export default function OnboardingScreen() {
     transform: [
       { translateY: promptTranslateY.value },
       { scale: promptScale.value }
-    ],
+    ] as any,
   }));
 
 
   const animatedBackgroundStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: backgroundShift.value * 10 }],
+    transform: [{ translateX: backgroundShift.value * 10 }] as any,
   }));
 
   return (
@@ -863,9 +868,9 @@ export default function OnboardingScreen() {
             ) : currentStep === 10 ? (
               <TouchableOpacity 
                 style={styles.datePickerButton} 
-                onPress={() => setShowDeliveryTypeModal(true)}
+                onPress={() => setShowTextModal(true)}
               >
-                <Text style={styles.datePickerButtonText}>🏥 Select Delivery Type</Text>
+                <Text style={styles.datePickerButtonText}>✏️ Type your delivery type</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity style={styles.fallbackButton} onPress={handleTextFallback}>
@@ -983,10 +988,10 @@ export default function OnboardingScreen() {
         visible={showTextModal}
         onClose={() => setShowTextModal(false)}
         onSubmit={handleTextSubmit}
-        placeholder={voicePrompts[currentStep - 1]}
+        placeholder={currentStep === 10 ? "Type 'normal delivery' or 'c section'" : voicePrompts[currentStep - 1]}
         title={getModalTitle()}
         inputType={getInputType()}
-        example={getExampleText()}
+        example={currentStep === 10 ? "Examples: 'normal delivery', 'c section', 'vaginal birth', 'cesarean'" : getExampleText()}
       />
 
       {/* iOS-Style Date Picker Modal */}
@@ -997,13 +1002,6 @@ export default function OnboardingScreen() {
         title={currentStep === 3 ? 'Your Date of Birth' : 'Baby\'s Date of Birth'}
       />
 
-      {/* Delivery Type Selection Modal */}
-      <DeliveryTypeModal
-        visible={showDeliveryTypeModal}
-        onClose={() => setShowDeliveryTypeModal(false)}
-        onSelect={handleDeliveryTypeSelect}
-        title="How did you deliver your baby?"
-      />
     </View>
   );
 }
@@ -1246,50 +1244,86 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: Colors.primary + '40',
   },
-  scrollPickersRow: {
+  pickersRow: {
     flexDirection: 'row',
     height: '100%',
-    zIndex: 2,
+    paddingHorizontal: 10,
   },
-  scrollPickerContainer: {
+  pickerContainer: {
     flex: 1,
     alignItems: 'center',
+    marginHorizontal: 5,
   },
-  scrollPickerLabel: {
+  pickerLabel: {
     fontSize: Typography.sizes.sm,
     fontFamily: Typography.bodyMedium,
     color: Colors.textMuted,
     paddingVertical: 8,
     textAlign: 'center',
   },
-  scrollPicker: {
+  pickerButton: {
     flex: 1,
     width: '100%',
-  },
-  scrollPickerContent: {
-    paddingVertical: 120,
+    backgroundColor: Colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    minHeight: 50,
   },
-  scrollPickerItem: {
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: '100%',
-    paddingHorizontal: 8,
-  },
-  scrollPickerItemSelected: {
-    backgroundColor: 'transparent',
-  },
-  scrollPickerItemText: {
+  pickerButtonText: {
     fontSize: Typography.sizes.base,
     fontFamily: Typography.body,
-    color: Colors.textMuted,
+    color: Colors.textPrimary,
+    flex: 1,
+  },
+  pickerButtonArrow: {
+    fontSize: Typography.sizes.sm,
+    color: Colors.primary,
+    marginLeft: 8,
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerDropdown: {
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    maxHeight: 200,
+    width: '80%',
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  pickerScrollView: {
+    maxHeight: 200,
+  },
+  pickerOption: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.primaryLight,
+  },
+  pickerOptionSelected: {
+    backgroundColor: Colors.primary + '20',
+  },
+  pickerOptionText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textPrimary,
     textAlign: 'center',
   },
-  scrollPickerItemTextSelected: {
-    fontSize: Typography.sizes.lg,
-    fontFamily: Typography.heading,
+  pickerOptionTextSelected: {
     color: Colors.primary,
+    fontFamily: Typography.bodySemiBold,
   },
   deliveryTypeContent: {
     padding: 20,
@@ -1297,12 +1331,17 @@ const styles = StyleSheet.create({
   deliveryTypeOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    marginBottom: 12,
+    padding: 20,
+    marginBottom: 16,
     backgroundColor: Colors.background,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.textMuted,
+    borderWidth: 2,
+    borderColor: Colors.primaryLight,
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   deliveryTypeInfo: {
     flex: 1,

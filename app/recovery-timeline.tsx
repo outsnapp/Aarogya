@@ -307,15 +307,27 @@ export default function RecoveryTimelineScreen() {
 
         {/* Current Phase */}
         <Animated.View style={[styles.currentPhaseCard, animatedHeaderStyle]}>
-          <Text style={styles.phaseTitle}>Current Phase</Text>
-          <Text style={styles.phaseSubtitle}>
-            {timelineData.currentPhase} - Day {timelineData.daysSinceDelivery}
-          </Text>
+          <View style={styles.phaseHeader}>
+            <Text style={styles.phaseTitle}>Your Recovery Journey</Text>
+            <Text style={styles.phaseSubtitle}>
+              {timelineData.currentPhase} • Day {timelineData.daysSinceDelivery} of Recovery
+            </Text>
+          </View>
+          
           <View style={styles.progressContainer}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressLabel}>Recovery Progress</Text>
+              <Text style={styles.progressPercentage}>{timelineData.progressPercentage}%</Text>
+            </View>
             <View style={styles.progressBackground}>
               <Animated.View style={[styles.progressFill, animatedProgressStyle]} />
             </View>
-            <Text style={styles.progressText}>{timelineData.progressPercentage}% Complete</Text>
+            <Text style={styles.progressDescription}>
+              {timelineData.progressPercentage < 25 ? 'Early healing phase - focus on rest' :
+               timelineData.progressPercentage < 50 ? 'Building strength - gentle movement OK' :
+               timelineData.progressPercentage < 75 ? 'Strong recovery - more activities allowed' :
+               'Near complete recovery - almost back to normal'}
+            </Text>
           </View>
         </Animated.View>
 
@@ -327,9 +339,23 @@ export default function RecoveryTimelineScreen() {
           </Text>
         </Animated.View>
 
-        {/* Upcoming Milestones */}
+        {/* Recovery Milestones with Better Explanation */}
         <View style={styles.milestonesSection}>
-          <Text style={styles.sectionTitle}>Recovery Milestones</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recovery Milestones</Text>
+            <Text style={styles.sectionSubtitle}>
+              Key healing stages after childbirth - these are typical recovery markers
+            </Text>
+          </View>
+          
+          {/* Milestone Explanation */}
+          <View style={styles.milestoneExplanation}>
+            <Text style={styles.explanationTitle}>📅 What do these days mean?</Text>
+            <Text style={styles.explanationText}>
+              These are standard recovery milestones based on medical research. Every woman's recovery is unique, but these are typical healing stages.
+            </Text>
+          </View>
+          
           {timelineData.milestones.map((milestone, index) => (
             <MilestoneItem
               key={index}
@@ -337,6 +363,18 @@ export default function RecoveryTimelineScreen() {
               delay={1200 + (index * 200)}
             />
           ))}
+          
+          {/* Next Milestone Highlight */}
+          {timelineData.milestones.find(m => m.isUpcoming) && (
+            <View style={styles.nextMilestoneHighlight}>
+              <Text style={styles.nextMilestoneTitle}>🎯 Your Next Milestone</Text>
+              <Text style={styles.nextMilestoneText}>
+                {timelineData.milestones.find(m => m.isUpcoming)?.title} in {
+                  (timelineData.milestones.find(m => m.isUpcoming)?.day || 0) - timelineData.daysSinceDelivery
+                } days
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* AI Predictions */}
@@ -363,7 +401,31 @@ export default function RecoveryTimelineScreen() {
           ))}
         </View>
 
-        {/* Voice Integration removed for clean demo */}
+        {/* Recovery Information Section */}
+        <View style={styles.infoSection}>
+          <Text style={styles.sectionTitle}>Understanding Your Recovery</Text>
+          
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>💡 Why These Milestones Matter</Text>
+            <Text style={styles.infoText}>
+              Postpartum recovery follows predictable healing patterns. These milestones help you understand what's normal and when to expect improvements in your energy, comfort, and ability to return to activities.
+            </Text>
+          </View>
+
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>📊 How We Track Your Progress</Text>
+            <Text style={styles.infoText}>
+              Your recovery percentage is calculated based on your delivery type, days since birth, and daily health check-ins. C-section recoveries typically take 6-8 weeks, while vaginal deliveries take 4-6 weeks.
+            </Text>
+          </View>
+
+          <View style={styles.infoCard}>
+            <Text style={styles.infoTitle}>🤝 When to Seek Help</Text>
+            <Text style={styles.infoText}>
+              If you're not meeting expected milestones, experiencing severe pain, or have concerns about your recovery, please contact your healthcare provider or use the ASHA worker feature for guidance.
+            </Text>
+          </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -449,10 +511,84 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  progressText: {
-    fontSize: Typography.sizes.sm,
-    fontFamily: Typography.bodyMedium,
+  phaseHeader: {
+    marginBottom: 20,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  progressLabel: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.textPrimary,
+  },
+  progressPercentage: {
+    fontSize: Typography.sizes.lg,
+    fontFamily: Typography.heading,
     color: Colors.primary,
+    fontWeight: 'bold',
+  },
+  progressDescription: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textPrimary,
+    textAlign: 'center',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  sectionHeader: {
+    marginBottom: 16,
+  },
+  sectionSubtitle: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    marginTop: 4,
+    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.sm,
+  },
+  milestoneExplanation: {
+    backgroundColor: Colors.primaryLight + '40',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+  },
+  explanationTitle: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.textPrimary,
+    marginBottom: 8,
+  },
+  explanationText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.sm,
+  },
+  nextMilestoneHighlight: {
+    backgroundColor: Colors.warning + '30',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: Colors.warning,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.warning,
+  },
+  nextMilestoneTitle: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  nextMilestoneText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
   },
   focusCard: {
     backgroundColor: Colors.secondaryLight,
@@ -635,5 +771,33 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.base,
     fontFamily: Typography.bodySemiBold,
     color: Colors.background,
+  },
+  infoSection: {
+    marginBottom: 24,
+  },
+  infoCard: {
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  infoTitle: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.textPrimary,
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.sm,
   },
 });
