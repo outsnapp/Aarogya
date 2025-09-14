@@ -14,8 +14,8 @@ import Animated, {
 import { Svg, Path, Circle, G, Rect } from 'react-native-svg';
 
 import { Colors, Typography } from '../constants/Colors';
-import VoiceRecorder from '../components/VoiceRecorder';
-import { MultilingualService, Language, LanguageSettings, RegionalSettings, VoiceTestResult } from '../lib/multilingualService';
+// VoiceRecorder removed for clean demo
+import { MultilingualService, Language, LanguageSettings, RegionalSettings } from '../lib/multilingualService';
 
 const { width } = Dimensions.get('window');
 
@@ -139,11 +139,7 @@ const LanguageOption = ({ language, isSelected, onSelect, delay }: LanguageOptio
           </Text>
         </View>
         <View style={styles.languageFeatures}>
-          {language.voiceSupported && (
-            <View style={[styles.featureBadge, { backgroundColor: Colors.primary }]}>
-              <Text style={styles.featureText}>🎤 Voice</Text>
-            </View>
-          )}
+          {/* Voice feature removed for clean demo */}
           {language.textSupported && (
             <View style={[styles.featureBadge, { backgroundColor: Colors.secondary }]}>
               <Text style={styles.featureText}>📝 Text</Text>
@@ -259,13 +255,13 @@ export default function MultilingualSettingsScreen() {
   const [languageSettings, setLanguageSettings] = useState<LanguageSettings>({
     primaryLanguage: 'English',
     secondaryLanguage: 'Hindi',
-    voiceRecognitionEnabled: true,
+    voiceRecognitionEnabled: false, // Disabled for clean demo
     textDisplayEnabled: true,
     accentRecognitionEnabled: true,
     mixedLanguageEnabled: true,
     largeTextEnabled: false,
     highContrastEnabled: false,
-    voiceNavigationEnabled: false,
+    voiceNavigationEnabled: false, // Disabled for clean demo
     audioDescriptionsEnabled: false,
     autoTranslateEnabled: true,
     culturalAdaptationEnabled: true
@@ -279,7 +275,7 @@ export default function MultilingualSettingsScreen() {
     temperatureUnit: 'Celsius'
   });
   
-  const [voiceTestResults, setVoiceTestResults] = useState<VoiceTestResult[]>([]);
+  // voiceTestResults removed for clean demo
   const [languages, setLanguages] = useState<Language[]>([]);
   const [culturalTips, setCulturalTips] = useState<string[]>([]);
   const [healthPhrases, setHealthPhrases] = useState<{ english: string; native: string; pronunciation: string }[]>([]);
@@ -300,16 +296,15 @@ export default function MultilingualSettingsScreen() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [settings, regional, testResults, supportedLanguages] = await Promise.all([
+      const [settings, regional, supportedLanguages] = await Promise.all([
         MultilingualService.getLanguageSettings(),
         MultilingualService.getRegionalSettings(),
-        MultilingualService.getVoiceTestResults(),
         Promise.resolve(MultilingualService.getSupportedLanguages())
       ]);
       
       setLanguageSettings(settings);
       setRegionalSettings(regional);
-      setVoiceTestResults(testResults);
+      // Voice test results removed for clean demo
       setLanguages(supportedLanguages);
     } catch (error) {
       console.error('Error loading multilingual data:', error);
@@ -345,44 +340,15 @@ export default function MultilingualSettingsScreen() {
     );
   }, []);
 
-  const handleVoiceStart = () => {
-    setIsListening(true);
-  };
-
-  const handleVoiceStop = () => {
-    setIsListening(false);
-  };
-
-  const handleVoiceTranscript = async (text: string) => {
-    try {
-      const result = await MultilingualService.testVoiceRecognition(
-        languageSettings.primaryLanguage, 
-        text
-      );
-      
-      setVoiceTestResults(prev => [result, ...prev]);
-      
-      Alert.alert(
-        'Voice Test Result',
-        `Language: ${result.language}\nAccuracy: ${result.accuracy}%\nConfidence: ${result.confidence}%\n\nTranscript: "${result.transcript}"`,
-        [{ text: 'OK' }]
-      );
-    } catch (error) {
-      console.error('Error testing voice recognition:', error);
-      Alert.alert('Error', 'Failed to test voice recognition');
-    }
-  };
+  // Voice recording functions removed for clean demo
 
   const handleChangeLanguage = () => {
     setShowLanguageModal(true);
   };
 
   const handleTestVoiceRecognition = () => {
-    Alert.alert(
-      'Voice Recognition Test',
-      'Speak into the microphone below to test voice recognition in your selected language.',
-      [{ text: 'OK' }]
-    );
+    // Voice recognition test removed for clean demo
+    Alert.alert('Voice Test', 'Voice testing feature removed for clean demo.');
   };
 
   const handleDownloadLanguagePack = () => {
@@ -498,7 +464,7 @@ export default function MultilingualSettingsScreen() {
 
   const quickActions = [
     { title: 'Change Language', icon: <ChangeLanguageIcon size={24} />, onPress: handleChangeLanguage, type: 'primary' as const, delay: 1200 },
-    { title: 'Test Voice Recognition', icon: <TestVoiceIcon size={24} />, onPress: handleTestVoiceRecognition, type: 'secondary' as const, delay: 1500 },
+    // Voice recognition test removed for clean demo
     { title: 'Download Language Pack', icon: <DownloadIcon size={24} />, onPress: handleDownloadLanguagePack, type: 'success' as const, delay: 1800 },
     { title: 'Cultural Preferences', icon: <CulturalIcon size={24} />, onPress: handleCulturalPreferences, type: 'secondary' as const, delay: 2100 },
     { title: 'Health Phrases', icon: <CulturalIcon size={24} />, onPress: handleShowHealthPhrases, type: 'primary' as const, delay: 2400 },
@@ -561,7 +527,7 @@ export default function MultilingualSettingsScreen() {
               <Text style={styles.languageSelectionValue}>{languageSettings.secondaryLanguage}</Text>
             </View>
             <View style={styles.languageSelectionItem}>
-              <Text style={styles.languageSelectionLabel}>Voice Recognition:</Text>
+              <Text style={styles.languageSelectionLabel}>Text Recognition:</Text>
               <Text style={styles.languageSelectionValue}>All languages supported</Text>
             </View>
             <View style={styles.languageSelectionItem}>
@@ -571,28 +537,7 @@ export default function MultilingualSettingsScreen() {
           </View>
         </Animated.View>
 
-        {/* Voice Features */}
-        <Animated.View style={[styles.section, animatedSectionStyle]}>
-          <Text style={styles.sectionTitle}>Voice Features</Text>
-          <View style={styles.voiceFeaturesCard}>
-            <View style={styles.voiceFeatureItem}>
-              <Text style={styles.voiceFeatureTitle}>Speech-to-Text:</Text>
-              <Text style={styles.voiceFeatureText}>Works in all 6 languages</Text>
-            </View>
-            <View style={styles.voiceFeatureItem}>
-              <Text style={styles.voiceFeatureTitle}>Text-to-Speech:</Text>
-              <Text style={styles.voiceFeatureText}>Natural voice synthesis</Text>
-            </View>
-            <View style={styles.voiceFeatureItem}>
-              <Text style={styles.voiceFeatureTitle}>Accent Recognition:</Text>
-              <Text style={styles.voiceFeatureText}>Regional accents supported</Text>
-            </View>
-            <View style={styles.voiceFeatureItem}>
-              <Text style={styles.voiceFeatureTitle}>Mixed Language:</Text>
-              <Text style={styles.voiceFeatureText}>Hindi-English conversations OK</Text>
-            </View>
-          </View>
-        </Animated.View>
+        {/* Voice features removed for clean demo */}
 
         {/* Localized Content */}
         <Animated.View style={[styles.section, animatedSectionStyle]}>
@@ -622,13 +567,13 @@ export default function MultilingualSettingsScreen() {
           <Text style={styles.sectionTitle}>Accessibility Features</Text>
           <View style={styles.accessibilityCard}>
             {[
-              { title: 'Voice Recognition', description: 'Enable voice input', value: languageSettings.voiceRecognitionEnabled, onValueChange: () => handleToggleSetting('voiceRecognitionEnabled'), delay: 1200 },
+              // Voice recognition setting removed for clean demo
               { title: 'Text Display', description: 'Show text in selected language', value: languageSettings.textDisplayEnabled, onValueChange: () => handleToggleSetting('textDisplayEnabled'), delay: 1400 },
               { title: 'Accent Recognition', description: 'Recognize regional accents', value: languageSettings.accentRecognitionEnabled, onValueChange: () => handleToggleSetting('accentRecognitionEnabled'), delay: 1600 },
               { title: 'Mixed Language', description: 'Allow mixed language conversations', value: languageSettings.mixedLanguageEnabled, onValueChange: () => handleToggleSetting('mixedLanguageEnabled'), delay: 1800 },
               { title: 'Large Text', description: 'Adjustable font sizes', value: languageSettings.largeTextEnabled, onValueChange: () => handleToggleSetting('largeTextEnabled'), delay: 2000 },
               { title: 'High Contrast', description: 'Better visibility options', value: languageSettings.highContrastEnabled, onValueChange: () => handleToggleSetting('highContrastEnabled'), delay: 2200 },
-              { title: 'Voice Navigation', description: 'Navigate app using voice', value: languageSettings.voiceNavigationEnabled, onValueChange: () => handleToggleSetting('voiceNavigationEnabled'), delay: 2400 },
+              // Voice navigation setting removed for clean demo
               { title: 'Audio Descriptions', description: 'Screen reader support', value: languageSettings.audioDescriptionsEnabled, onValueChange: () => handleToggleSetting('audioDescriptionsEnabled'), delay: 2600 },
               { title: 'Auto Translate', description: 'Automatically translate content', value: languageSettings.autoTranslateEnabled, onValueChange: () => handleToggleSetting('autoTranslateEnabled'), delay: 2800 },
               { title: 'Cultural Adaptation', description: 'Adapt content for local culture', value: languageSettings.culturalAdaptationEnabled, onValueChange: () => handleToggleSetting('culturalAdaptationEnabled'), delay: 3000 },
@@ -682,7 +627,7 @@ export default function MultilingualSettingsScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={styles.languageLearningItem} onPress={handleShowPronunciationGuide}>
               <Text style={styles.languageLearningTitle}>Pronunciation Guide:</Text>
-              <Text style={styles.languageLearningText}>Voice pronunciation help for health terms</Text>
+              <Text style={styles.languageLearningText}>Text pronunciation help for health terms</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.languageLearningItem} onPress={handleCulturalPreferences}>
               <Text style={styles.languageLearningTitle}>Cultural Tips:</Text>
@@ -708,17 +653,7 @@ export default function MultilingualSettingsScreen() {
           </View>
         </View>
 
-        {/* Voice Integration */}
-        <Animated.View style={[styles.voiceSection, animatedSectionStyle]}>
-          <Text style={styles.voiceTitle}>Speak in your preferred language</Text>
-          <VoiceRecorder
-            onTranscript={handleVoiceTranscript}
-            onStart={handleVoiceStart}
-            onStop={handleVoiceStop}
-            isListening={isListening}
-            disabled={false}
-          />
-        </Animated.View>
+        {/* Voice recording removed for clean demo */}
       </ScrollView>
 
       {/* Language Selection Modal */}
@@ -766,9 +701,7 @@ export default function MultilingualSettingsScreen() {
                   )}
                 </View>
                 <View style={styles.modalLanguageFeatures}>
-                  {language.voiceSupported && (
-                    <Text style={styles.modalFeatureText}>🎤</Text>
-                  )}
+                  {/* Voice feature removed for clean demo */}
                   {language.textSupported && (
                     <Text style={styles.modalFeatureText}>📝</Text>
                   )}
@@ -1049,33 +982,7 @@ const styles = StyleSheet.create({
     fontFamily: Typography.bodySemiBold,
     color: Colors.secondary,
   },
-  voiceFeaturesCard: {
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: Colors.warning,
-    shadowColor: Colors.textPrimary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  voiceFeatureItem: {
-    marginBottom: 12,
-  },
-  voiceFeatureTitle: {
-    fontSize: Typography.sizes.base,
-    fontFamily: Typography.bodySemiBold,
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  voiceFeatureText: {
-    fontSize: Typography.sizes.sm,
-    fontFamily: Typography.body,
-    color: Colors.textMuted,
-    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.sm,
-  },
+  // Voice features styles removed for clean demo
   localizedContentCard: {
     backgroundColor: Colors.background,
     borderRadius: 12,
@@ -1237,17 +1144,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     textAlign: 'center',
   },
-  voiceSection: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  voiceTitle: {
-    fontSize: Typography.sizes.lg,
-    fontFamily: Typography.bodyMedium,
-    color: Colors.textMuted,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
+  // Voice section styles removed for clean demo
   modalContainer: {
     flex: 1,
     backgroundColor: Colors.background,

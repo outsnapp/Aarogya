@@ -15,7 +15,7 @@ import Animated, {
 import { Svg, Path, Circle, G, Rect } from 'react-native-svg';
 
 import { Colors, Typography } from '../constants/Colors';
-import VoiceRecorder from '../components/VoiceRecorder';
+// VoiceRecorder removed for clean demo
 import ProgressBar from '../components/ProgressBar';
 import TextInputModal from '../components/TextInputModal';
 import { useAuth } from '../contexts/AuthContext';
@@ -37,7 +37,7 @@ interface OnboardingData {
   deliveryType: string;
   emergencyContacts: string[];
   preferredLanguage: string;
-  voiceSmsConsent: boolean;
+  // voiceSmsConsent removed for clean demo
 }
 
 interface DatePickerModalProps {
@@ -401,7 +401,7 @@ const AnimatedCard = ({ children, delay = 0, style = {} }: { children: React.Rea
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { user, updateProfile, checkOnboardingStatus } = useAuth();
+  const { user, updateProfile, checkOnboardingStatus, markOnboardingCompleted } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -421,34 +421,19 @@ export default function OnboardingScreen() {
     deliveryType: '',
     emergencyContacts: [],
     preferredLanguage: '',
-    voiceSmsConsent: false,
+    // voiceSmsConsent removed for clean demo
   });
 
   // Animation values
   const promptOpacity = useSharedValue(0);
   const promptTranslateY = useSharedValue(30);
   const promptScale = useSharedValue(0.95);
-  const voicePulse = useSharedValue(1);
+  // voicePulse removed for clean demo
   const backgroundShift = useSharedValue(0);
 
   const totalSteps = 10; // Increased from 7 to 10
 
-  // Enhanced voice prompts with medical questions
-  const voicePrompts = [
-    `👋 Namaste! I am Aarogya — your AI postnatal companion. You can speak to me in Hindi or English. What should I call you?`,
-    `Thank you, ${onboardingData.name}! I need your phone number for emergency alerts. Please say it slowly.`,
-    `When were you born? Please say your date of birth.`,
-    `What is your height in centimeters? This helps me calculate your BMI for health tracking.`,
-    `What is your current weight in kilograms?`,
-    `When did your little one arrive? Please say the date.`,
-    `What is your baby's height in centimeters?`,
-    `What is your baby's weight in kilograms?`,
-    `Does your baby have any medical conditions or special needs I should know about?`,
-    `How did you deliver your baby? Please say "normal delivery" or "C-section".`,
-    `Who should I contact in emergencies? Please say their name and relationship, like "My husband Rajesh" or "My mother Sita".`,
-    `Which language do you prefer for our conversations?`,
-    `Can I send you voice messages and SMS alerts?`,
-  ];
+  // Voice prompts removed for clean demo
 
   useEffect(() => {
     // Enhanced animations
@@ -456,15 +441,7 @@ export default function OnboardingScreen() {
     promptTranslateY.value = withSpring(0, { damping: 12, stiffness: 100 });
     promptScale.value = withSpring(1, { damping: 15, stiffness: 150 });
 
-    // Voice button pulse
-    voicePulse.value = withRepeat(
-      withSequence(
-        withTiming(1.1, { duration: 1000, easing: Easing.inOut(Easing.quad) }),
-        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.quad) })
-      ),
-      -1,
-      false
-    );
+    // Voice button pulse removed for clean demo
 
     // Background gradient shift
     backgroundShift.value = withRepeat(
@@ -474,70 +451,9 @@ export default function OnboardingScreen() {
     );
   }, [currentStep]);
 
-  const handleTranscript = (text: string) => {
-    // Process the voice input based on current step
-    switch (currentStep) {
-      case 1:
-        setOnboardingData(prev => ({ ...prev, name: text }));
-        break;
-      case 2:
-        setOnboardingData(prev => ({ ...prev, phone: text }));
-        break;
-      case 3:
-        setOnboardingData(prev => ({ ...prev, motherDob: text }));
-        break;
-      case 4:
-        setOnboardingData(prev => ({ ...prev, motherHeight: text }));
-        break;
-      case 5:
-        setOnboardingData(prev => ({ ...prev, motherWeight: text }));
-        break;
-      case 6:
-        setOnboardingData(prev => ({ ...prev, babyDob: text }));
-        break;
-      case 7:
-        setOnboardingData(prev => ({ ...prev, babyHeight: text }));
-        break;
-      case 8:
-        setOnboardingData(prev => ({ ...prev, babyWeight: text }));
-        break;
-      case 9:
-        setOnboardingData(prev => ({ ...prev, babyMedicalConditions: text }));
-        break;
-      case 10:
-        setOnboardingData(prev => ({ ...prev, deliveryType: text }));
-        break;
-      case 11:
-        setOnboardingData(prev => ({ 
-          ...prev, 
-          emergencyContacts: [...prev.emergencyContacts, text] 
-        }));
-        break;
-      case 12:
-        setOnboardingData(prev => ({ ...prev, preferredLanguage: text }));
-        break;
-      case 13:
-        setOnboardingData(prev => ({ ...prev, voiceSmsConsent: text.toLowerCase().includes('yes') }));
-        break;
-    }
-  };
+  // Voice transcript handling removed for clean demo
 
-  const handleVoiceStart = () => {
-    setIsListening(true);
-  };
-
-  const handleVoiceStop = () => {
-    setIsListening(false);
-    
-    // Auto-advance to next step after a short delay
-    setTimeout(() => {
-      if (currentStep < totalSteps) {
-        setCurrentStep(prev => prev + 1);
-      } else {
-        completeOnboarding();
-      }
-    }, 1000);
-  };
+  // Voice recording functions removed for clean demo
 
   const completeOnboarding = async () => {
     setSaving(true);
@@ -554,10 +470,13 @@ export default function OnboardingScreen() {
         }
 
         console.log('Onboarding data saved successfully:', data);
+        
+        // Wait a moment for database to process the changes
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
-      // Check onboarding status after saving
-      await checkOnboardingStatus();
+      // Explicitly mark onboarding as completed
+      await markOnboardingCompleted();
 
       // Show completion message with BMI info
       const bmiStatus = getBmiStatus(onboardingData.motherBmi);
@@ -600,7 +519,49 @@ export default function OnboardingScreen() {
   };
 
   const handleTextSubmit = (text: string) => {
-    handleTranscript(text);
+    // Process text input based on current step
+    switch (currentStep) {
+      case 1:
+        setOnboardingData(prev => ({ ...prev, name: text }));
+        break;
+      case 2:
+        setOnboardingData(prev => ({ ...prev, phone: text }));
+        break;
+      case 3:
+        setOnboardingData(prev => ({ ...prev, motherDob: text }));
+        break;
+      case 4:
+        setOnboardingData(prev => ({ ...prev, motherHeight: text }));
+        break;
+      case 5:
+        setOnboardingData(prev => ({ ...prev, motherWeight: text }));
+        break;
+      case 6:
+        setOnboardingData(prev => ({ ...prev, babyDob: text }));
+        break;
+      case 7:
+        setOnboardingData(prev => ({ ...prev, babyHeight: text }));
+        break;
+      case 8:
+        setOnboardingData(prev => ({ ...prev, babyWeight: text }));
+        break;
+      case 9:
+        setOnboardingData(prev => ({ ...prev, babyMedicalConditions: text }));
+        break;
+      case 10:
+        setOnboardingData(prev => ({ ...prev, deliveryType: text }));
+        break;
+      case 11:
+        setOnboardingData(prev => ({ 
+          ...prev, 
+          emergencyContacts: [...prev.emergencyContacts, text] 
+        }));
+        break;
+      case 12:
+        setOnboardingData(prev => ({ ...prev, preferredLanguage: text }));
+        break;
+    }
+    
     // Auto-advance to next step after text input
     setTimeout(() => {
       if (currentStep < totalSteps) {
@@ -727,18 +688,7 @@ export default function OnboardingScreen() {
         </AnimatedCard>
 
         {/* Enhanced Voice Recorder */}
-        <AnimatedCard delay={400}>
-          <View style={styles.voiceContainer}>
-            <Animated.View style={[styles.voiceWrapper, animatedVoiceStyle]}>
-              <VoiceRecorder
-                onTranscript={handleTranscript}
-                onStart={handleVoiceStart}
-                onStop={handleVoiceStop}
-                isListening={isListening}
-              />
-            </Animated.View>
-          </View>
-        </AnimatedCard>
+        {/* Voice recording removed for clean demo */}
 
         {/* Enhanced Fallback Options */}
         <AnimatedCard delay={600}>
@@ -943,24 +893,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: Typography.lineHeights.relaxed * Typography.sizes.lg,
   },
-  voiceContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  voiceWrapper: {
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  voiceLabel: {
-    fontSize: Typography.sizes.base,
-    fontFamily: Typography.bodyMedium,
-    color: Colors.primary,
-    marginTop: 16,
-    textAlign: 'center',
-  },
+  // Voice recording styles removed for clean demo
   fallbackContainer: {
     alignItems: 'center',
     gap: 12,

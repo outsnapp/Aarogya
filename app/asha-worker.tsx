@@ -16,7 +16,7 @@ import { Svg, Path, Circle, G } from 'react-native-svg';
 import { Colors, Typography } from '../constants/Colors';
 import { ASHAWorkerService, ASHAWorkerProfile } from '../lib/ashaWorkerService';
 import { useAuth } from '../contexts/AuthContext';
-import VoiceRecorder from '../components/VoiceRecorder';
+// VoiceRecorder removed for clean demo
 
 const { width } = Dimensions.get('window');
 
@@ -248,7 +248,7 @@ export default function ASHAWorkerScreen() {
   const { user } = useAuth();
   const [ashaWorkerProfile, setAshaWorkerProfile] = useState<ASHAWorkerProfile | null>(null);
   const [isOnline, setIsOnline] = useState(true);
-  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  // voiceEnabled removed for clean demo
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [languageHindi, setLanguageHindi] = useState(false);
   const [familyNotifications, setFamilyNotifications] = useState(true);
@@ -317,7 +317,7 @@ export default function ASHAWorkerScreen() {
     try {
       const settings = await ASHAWorkerService.getSettings(user.id);
       if (settings) {
-        setVoiceEnabled(settings.voice_enabled);
+        // voiceEnabled removed for clean demo
         setSmsEnabled(settings.sms_enabled);
         setLanguageHindi(settings.language_hindi);
         setFamilyNotifications(settings.family_notifications);
@@ -344,7 +344,7 @@ export default function ASHAWorkerScreen() {
     
     try {
       await ASHAWorkerService.updateSettings(user.id, {
-        voice_enabled: voiceEnabled,
+        // voice_enabled removed for clean demo
         sms_enabled: smsEnabled,
         language_hindi: languageHindi,
         family_notifications: familyNotifications,
@@ -356,16 +356,8 @@ export default function ASHAWorkerScreen() {
   };
 
   const handleVoiceCall = async () => {
-    if (!ashaWorkerProfile || !user?.id) return;
-    
-    try {
-      const success = await ASHAWorkerService.initiateVoiceCall(ashaWorkerProfile.phone);
-      if (success) {
-        Alert.alert('Call Initiated', `Calling ${ashaWorkerProfile.name}...`);
-      }
-    } catch (error) {
-      console.error('Error making voice call:', error);
-    }
+    // Voice call removed for clean demo
+    Alert.alert('Voice Call', 'Voice call feature removed for clean demo.');
   };
 
   const handleVideoCall = async () => {
@@ -382,24 +374,11 @@ export default function ASHAWorkerScreen() {
   };
 
   const handleVoiceMessage = () => {
-    setIsRecording(true);
+    // Voice message removed for clean demo
+    Alert.alert('Voice Message', 'Voice message feature removed for clean demo.');
   };
 
-  const handleVoiceTranscript = async (text: string) => {
-    if (!user?.id || !ashaWorkerProfile) return;
-    
-    try {
-      const voiceMessage = await ASHAWorkerService.recordVoiceMessage(user.id, ashaWorkerProfile.id);
-      if (voiceMessage) {
-        Alert.alert('Voice Message Sent', 'Your voice message has been sent to your ASHA worker.');
-      }
-    } catch (error) {
-      console.error('Error sending voice message:', error);
-      Alert.alert('Error', 'Failed to send voice message');
-    } finally {
-      setIsRecording(false);
-    }
-  };
+  // Voice transcript handling removed for clean demo
 
   const handleShareLocation = async () => {
     if (!user?.id || !ashaWorkerProfile) return;
@@ -473,9 +452,7 @@ export default function ASHAWorkerScreen() {
 
   const handleSettingChange = async (setting: string, value: boolean) => {
     switch (setting) {
-      case 'voice':
-        setVoiceEnabled(value);
-        break;
+      // voice setting removed for clean demo
       case 'sms':
         setSmsEnabled(value);
         break;
@@ -524,7 +501,7 @@ export default function ASHAWorkerScreen() {
   ];
 
   const settings = [
-    { title: 'Voice Messages', description: 'Receive voice messages from ASHA worker', value: voiceEnabled, onValueChange: (value: boolean) => handleSettingChange('voice', value), delay: 2600 },
+    // Voice messages setting removed for clean demo
     { title: 'SMS Notifications', description: 'Get SMS updates and alerts', value: smsEnabled, onValueChange: (value: boolean) => handleSettingChange('sms', value), delay: 2800 },
     { title: 'Hindi Language', description: 'Use Hindi for communication', value: languageHindi, onValueChange: (value: boolean) => handleSettingChange('hindi', value), delay: 3000 },
     { title: 'Family Notifications', description: 'Notify family members of updates', value: familyNotifications, onValueChange: (value: boolean) => handleSettingChange('family', value), delay: 3200 },
@@ -588,7 +565,7 @@ export default function ASHAWorkerScreen() {
               <Text style={styles.monitoringBold}>Health Metrics:</Text> {monitoringData?.healthMetrics?.length || 0} recent check-ins recorded
             </Text>
             <Text style={styles.monitoringText}>
-              <Text style={styles.monitoringBold}>Voice Check-ins:</Text> {monitoringData?.voiceCheckins?.length || 0} voice messages shared
+              <Text style={styles.monitoringBold}>Messages:</Text> {monitoringData?.voiceCheckins?.length || 0} messages shared
             </Text>
             <Text style={styles.monitoringText}>
               <Text style={styles.monitoringBold}>Last Updated:</Text> {monitoringData?.lastUpdated ? new Date(monitoringData.lastUpdated).toLocaleString() : 'Never'}
@@ -643,18 +620,7 @@ export default function ASHAWorkerScreen() {
         </View>
 
         {/* Voice Message Recording */}
-        {isRecording && (
-          <View style={styles.voiceRecorderContainer}>
-            <Text style={styles.voiceRecorderTitle}>Recording Voice Message</Text>
-            <VoiceRecorder
-              onTranscript={handleVoiceTranscript}
-              onStart={() => {}}
-              onStop={() => setIsRecording(false)}
-              isListening={isRecording}
-              disabled={false}
-            />
-          </View>
-        )}
+        {/* Voice recorder removed for clean demo */}
       </ScrollView>
 
       {/* Home Visit Request Modal */}
@@ -963,26 +929,7 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginTop: 4,
   },
-  voiceRecorderContainer: {
-    backgroundColor: Colors.background,
-    borderRadius: 12,
-    padding: 20,
-    margin: 20,
-    borderWidth: 1,
-    borderColor: Colors.primary,
-    shadowColor: Colors.textPrimary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  voiceRecorderTitle: {
-    fontSize: Typography.sizes.lg,
-    fontFamily: Typography.heading,
-    color: Colors.textPrimary,
-    marginBottom: 16,
-    textAlign: 'center',
-  },
+  // Voice recorder styles removed for clean demo
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

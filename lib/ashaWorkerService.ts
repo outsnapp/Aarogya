@@ -140,7 +140,7 @@ export class ASHAWorkerService {
   // Record and send voice message
   static async recordVoiceMessage(userId: string, ashaWorkerId: string): Promise<VoiceMessage | null> {
     try {
-      // This would integrate with the VoiceRecorder component
+      // Voice recording functionality removed for clean demo
       // For now, we'll simulate the process
       const voiceMessage: VoiceMessage = {
         id: `vm_${Date.now()}`,

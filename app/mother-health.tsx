@@ -14,7 +14,7 @@ import Animated, {
 import { Svg, Path, Circle, G, Rect } from 'react-native-svg';
 
 import { Colors, Typography } from '../constants/Colors';
-import VoiceRecorder from '../components/VoiceRecorder';
+// VoiceRecorder removed for clean demo
 import { useAuth } from '../contexts/AuthContext';
 import { MotherHealthService, MotherHealthMetrics, DailyCheckIn, NutritionEntry, ExerciseEntry } from '../lib/motherHealthService';
 
@@ -331,7 +331,7 @@ export default function MotherHealthScreen() {
   // State management
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isListening, setIsListening] = useState(false);
+  // Voice recording removed for clean demo
   
   // Data state
   const [healthData, setHealthData] = useState<any>(null);
@@ -440,35 +440,9 @@ export default function MotherHealthScreen() {
   }, [user]);
 
   // Handler functions
-  const handleVoiceStart = () => {
-    setIsListening(true);
-  };
+  // Voice recording functions removed for clean demo
 
-  const handleVoiceStop = () => {
-    setIsListening(false);
-  };
-
-  const handleVoiceTranscript = async (text: string) => {
-    if (!user) return;
-    
-    try {
-      // Process voice transcript for health data
-      const healthMetrics: Omit<MotherHealthMetrics, 'id' | 'created_at'> = {
-        user_id: user.id,
-        recorded_date: new Date().toISOString().split('T')[0],
-        energy_level: 7,
-        mood_score: 7,
-        notes: `Voice input: ${text}`
-      };
-      
-      await MotherHealthService.saveHealthMetrics(healthMetrics);
-      Alert.alert('Success', 'Voice input processed and saved!');
-      loadMotherHealthData();
-    } catch (error) {
-      console.error('Error processing voice transcript:', error);
-      Alert.alert('Error', 'Failed to process voice input. Please try again.');
-    }
-  };
+  // Voice recording functions removed for clean demo
 
   const handleDailyCheckIn = () => {
     setShowDailyCheckInModal(true);
@@ -779,17 +753,7 @@ export default function MotherHealthScreen() {
           </View>
         </View>
 
-        {/* Voice Integration */}
-        <Animated.View style={[styles.voiceSection, animatedSectionStyle]}>
-          <Text style={styles.voiceTitle}>Tell me about your health today</Text>
-          <VoiceRecorder
-            onTranscript={handleVoiceTranscript}
-            onStart={handleVoiceStart}
-            onStop={handleVoiceStop}
-            isListening={isListening}
-            disabled={false}
-          />
-        </Animated.View>
+        {/* Voice recording removed for clean demo */}
       </ScrollView>
 
       {/* Daily Check-in Modal */}
@@ -1499,17 +1463,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     textAlign: 'center',
   },
-  voiceSection: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  voiceTitle: {
-    fontSize: Typography.sizes.lg,
-    fontFamily: Typography.bodyMedium,
-    color: Colors.textMuted,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
+  // Voice recording styles removed for clean demo
   modalContainer: {
     flex: 1,
     backgroundColor: Colors.background,

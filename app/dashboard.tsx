@@ -212,7 +212,7 @@ const QuickAction = ({ title, icon, onPress, delay }: QuickActionProps) => {
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, onboardingCompleted } = useAuth();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -356,8 +356,8 @@ export default function DashboardScreen() {
     );
   }
 
-  // Show empty state if no data
-  if (!dashboardData) {
+  // Show empty state if no data and onboarding is not completed
+  if (!dashboardData && !onboardingCompleted) {
     return (
       <View style={styles.container}>
         <StatusBar style="dark" backgroundColor={Colors.background} />
@@ -367,6 +367,19 @@ export default function DashboardScreen() {
           <TouchableOpacity style={styles.setupButton} onPress={() => router.push('/onboarding')}>
             <Text style={styles.setupButtonText}>Complete Setup</Text>
           </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // Show loading state if onboarding is completed but dashboard data is still loading
+  if (!dashboardData && onboardingCompleted) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="dark" backgroundColor={Colors.background} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>Loading your dashboard...</Text>
         </View>
       </View>
     );

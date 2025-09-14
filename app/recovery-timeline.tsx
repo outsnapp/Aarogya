@@ -14,7 +14,7 @@ import Animated, {
 import { Svg, Path, Circle, G } from 'react-native-svg';
 
 import { Colors, Typography } from '../constants/Colors';
-import VoiceRecorder from '../components/VoiceRecorder';
+// VoiceRecorder removed for clean demo
 import { RecoveryTimelineService, RecoveryTimelineData } from '../lib/recoveryTimelineService';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -205,7 +205,6 @@ const TipCard = ({ tip, delay }: { tip: Tip; delay: number }) => {
 export default function RecoveryTimelineScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const [isListening, setIsListening] = useState(false);
   const [timelineData, setTimelineData] = useState<RecoveryTimelineData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -213,7 +212,6 @@ export default function RecoveryTimelineScreen() {
   const headerOpacity = useSharedValue(0);
   const headerTranslateY = useSharedValue(-20);
   const progressValue = useSharedValue(0);
-  const voicePulse = useSharedValue(1);
 
   useEffect(() => {
     loadTimelineData();
@@ -232,15 +230,6 @@ export default function RecoveryTimelineScreen() {
         withTiming(progressDecimal, { duration: 1000, easing: Easing.out(Easing.quad) })
       );
 
-      // Voice button pulse animation
-      voicePulse.value = withRepeat(
-        withSequence(
-          withTiming(1.05, { duration: 1000, easing: Easing.inOut(Easing.quad) }),
-          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.quad) })
-        ),
-        -1,
-        false
-      );
     }
   }, [timelineData]);
 
@@ -262,34 +251,6 @@ export default function RecoveryTimelineScreen() {
     }
   };
 
-  const handleVoiceStart = () => {
-    setIsListening(true);
-  };
-
-  const handleVoiceStop = () => {
-    setIsListening(false);
-  };
-
-  const handleVoiceTranscript = async (text: string) => {
-    if (!user?.id) return;
-    
-    try {
-      const result = await RecoveryTimelineService.processVoiceTranscript(user.id, text);
-      
-      // Show analysis and recommendations
-      Alert.alert(
-        'Recovery Analysis',
-        `${result.analysis}\n\nRecommendations:\n${result.recommendations.map(rec => `• ${rec}`).join('\n')}`,
-        [{ text: 'OK' }]
-      );
-      
-      // Reload timeline data to reflect any updates
-      await loadTimelineData();
-    } catch (error) {
-      console.error('Error processing voice transcript:', error);
-      Alert.alert('Error', 'Failed to process your voice input. Please try again.');
-    }
-  };
 
   const handleBackToDashboard = () => {
     router.back();
@@ -304,9 +265,6 @@ export default function RecoveryTimelineScreen() {
     width: `${progressValue.value * 100}%`,
   }));
 
-  const animatedVoiceStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: voicePulse.value }],
-  }));
 
   if (loading) {
     return (
@@ -405,17 +363,7 @@ export default function RecoveryTimelineScreen() {
           ))}
         </View>
 
-        {/* Voice Integration */}
-        <Animated.View style={[styles.voiceSection, animatedVoiceStyle]}>
-          <Text style={styles.voiceTitle}>Ask me about your recovery</Text>
-          <VoiceRecorder
-            onTranscript={handleVoiceTranscript}
-            onStart={handleVoiceStart}
-            onStop={handleVoiceStop}
-            isListening={isListening}
-            disabled={false}
-          />
-        </Animated.View>
+        {/* Voice Integration removed for clean demo */}
       </ScrollView>
     </View>
   );
@@ -651,17 +599,6 @@ const styles = StyleSheet.create({
     fontFamily: Typography.body,
     color: Colors.textMuted,
     lineHeight: Typography.lineHeights.relaxed * Typography.sizes.sm,
-  },
-  voiceSection: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  voiceTitle: {
-    fontSize: Typography.sizes.lg,
-    fontFamily: Typography.bodyMedium,
-    color: Colors.textMuted,
-    marginBottom: 20,
-    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,

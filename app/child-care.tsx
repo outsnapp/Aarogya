@@ -14,7 +14,7 @@ import Animated, {
 import { Svg, Path, Circle, G } from 'react-native-svg';
 
 import { Colors, Typography } from '../constants/Colors';
-import VoiceRecorder from '../components/VoiceRecorder';
+// VoiceRecorder removed for clean demo
 import { useAuth } from '../contexts/AuthContext';
 import { ChildCareService, BabyProfile, BabyGrowth, BabyMilestone, BabyFeeding, DailyCheckIn, HealthAssessment } from '../lib/childCareService';
 
@@ -182,7 +182,7 @@ export default function ChildCareScreen() {
   const headerTranslateY = useSharedValue(-20);
   const sectionOpacity = useSharedValue(0);
   const sectionTranslateY = useSharedValue(30);
-  const voicePulse = useSharedValue(1);
+  // voicePulse removed for clean demo
 
   // Load baby data on component mount
   useEffect(() => {
@@ -244,29 +244,10 @@ export default function ChildCareScreen() {
       withTiming(0, { duration: 600, easing: Easing.out(Easing.quad) })
     );
 
-    // Voice button pulse animation
-    voicePulse.value = withRepeat(
-      withSequence(
-        withTiming(1.05, { duration: 1000, easing: Easing.inOut(Easing.quad) }),
-        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.quad) })
-      ),
-      -1,
-      false
-    );
+    // Voice button pulse animation removed for clean demo
   }, []);
 
-  const handleVoiceStart = () => {
-    setIsListening(true);
-  };
-
-  const handleVoiceStop = () => {
-    setIsListening(false);
-  };
-
-  const handleVoiceTranscript = (text: string) => {
-    // Handle voice input for baby care questions
-    console.log('Baby care question:', text);
-  };
+  // Voice recording functions removed for clean demo
 
   const handleDailyCheckIn = () => {
     if (!babyProfile) {
@@ -311,7 +292,7 @@ export default function ChildCareScreen() {
   };
 
   const handleAskAboutBaby = () => {
-    // This will be handled by voice input
+    // Voice input removed for clean demo
     console.log('Ask about baby');
   };
 
@@ -442,9 +423,7 @@ export default function ChildCareScreen() {
     transform: [{ translateY: sectionTranslateY.value }],
   }));
 
-  const animatedVoiceStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: voicePulse.value }],
-  }));
+  // Voice animation removed for clean demo
 
   const quickActions = [
     { title: 'Daily Check-in', icon: <FeedingIcon size={28} />, onPress: handleDailyCheckIn, delay: 1200 },
@@ -683,17 +662,7 @@ export default function ChildCareScreen() {
           </View>
         </View>
 
-        {/* Voice Integration */}
-        <Animated.View style={[styles.voiceSection, animatedVoiceStyle]}>
-          <Text style={styles.voiceTitle}>Ask me about your baby's development</Text>
-          <VoiceRecorder
-            onTranscript={handleVoiceTranscript}
-            onStart={handleVoiceStart}
-            onStop={handleVoiceStop}
-            isListening={isListening}
-            disabled={false}
-          />
-        </Animated.View>
+        {/* Voice recording removed for clean demo */}
       </ScrollView>
 
       {/* Daily Check-in Modal */}
@@ -1348,17 +1317,7 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     textAlign: 'center',
   },
-  voiceSection: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  voiceTitle: {
-    fontSize: Typography.sizes.lg,
-    fontFamily: Typography.bodyMedium,
-    color: Colors.textMuted,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
+  // Voice recording styles removed for clean demo
   // Loading and Error States
   loadingContainer: {
     flex: 1,

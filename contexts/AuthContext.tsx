@@ -15,6 +15,7 @@ interface AuthContextType {
   updateProfile: (updates: Partial<UserProfile>) => Promise<{ error: any }>;
   refreshProfile: () => Promise<void>;
   checkOnboardingStatus: () => Promise<boolean>;
+  markOnboardingCompleted: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -173,27 +174,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
 
-    // Also check if user has a baby profile (essential for the app)
-    try {
-      const { data: babyProfiles, error } = await supabase
-        .from('baby_profiles')
-        .select('id')
-        .eq('user_id', profile.id)
-        .limit(1);
-
-      if (error) {
-        console.error('Error checking baby profile:', error);
-        return false;
-      }
-
-      const hasBabyProfile = babyProfiles && babyProfiles.length > 0;
-      console.log('👶 Baby profile check:', { hasBabyProfile, count: babyProfiles?.length || 0 });
-      
-      return hasBabyProfile;
-    } catch (error) {
-      console.error('Error checking baby profile:', error);
-      return false;
-    }
+    // Basic profile is complete - baby profile is optional and can be added later
+    console.log('✅ Basic profile complete - onboarding finished');
+    return true;
   };
 
   const checkOnboardingStatus = async (): Promise<boolean> => {
@@ -228,6 +211,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error checking onboarding status:', error);
       setOnboardingCompleted(false);
       return false;
+    }
+  };
+
+  const markOnboardingCompleted = async (): Promise<void> => {
+    if (!user) return;
+    
+    try {
+      console.log('✅ Explicitly marking onboarding as completed for user:', user.id);
+      setOnboardingCompleted(true);
+      await saveOnboardingStatus(user.id, true);
+    } catch (error) {
+      console.error('Error marking onboarding as completed:', error);
     }
   };
 
@@ -357,6 +352,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     updateProfile,
     refreshProfile,
     checkOnboardingStatus,
+    markOnboardingCompleted,
   };
 
   return (

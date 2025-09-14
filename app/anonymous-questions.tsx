@@ -14,7 +14,7 @@ import Animated, {
 import { Svg, Path, Circle, G } from 'react-native-svg';
 
 import { Colors, Typography } from '../constants/Colors';
-import VoiceRecorder from '../components/VoiceRecorder';
+// VoiceRecorder removed for clean demo
 import { AnonymousQuestionsService, AnonymousQuestion, QuestionSubmission, AIResponse } from '../lib/anonymousQuestionsService';
 
 const { width } = Dimensions.get('window');
@@ -188,7 +188,7 @@ const QuickAction = ({ title, icon, onPress, type, delay }: QuickActionProps) =>
 
 export default function AnonymousQuestionsScreen() {
   const router = useRouter();
-  const [isListening, setIsListening] = useState(false);
+  // Voice recording removed for clean demo
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const [newQuestion, setNewQuestion] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Postpartum Concerns');
@@ -292,51 +292,7 @@ export default function AnonymousQuestionsScreen() {
     );
   }, []);
 
-  const handleVoiceStart = () => {
-    setIsListening(true);
-  };
-
-  const handleVoiceStop = () => {
-    setIsListening(false);
-  };
-
-  const handleVoiceTranscript = async (text: string) => {
-    if (!text.trim()) return;
-    
-    setNewQuestion(text);
-    setShowQuestionModal(true);
-  };
-
-  const handleSubmitVoiceQuestion = async (text: string) => {
-    if (!text.trim()) return;
-
-    setSubmitting(true);
-    try {
-      const questionData: QuestionSubmission = {
-        questionText: text.trim(),
-        category: selectedCategory,
-        urgency: selectedUrgency,
-        isVoiceQuestion: true
-      };
-
-      const result = await AnonymousQuestionsService.submitAnonymousQuestion(questionData);
-      
-      if (result.success) {
-        Alert.alert(
-          'Voice Question Submitted!',
-          'Your anonymous voice question has been submitted successfully. You can view the AI response in the recent questions section.',
-          [{ text: 'OK', onPress: () => loadQuestions() }]
-        );
-      } else {
-        Alert.alert('Error', 'Failed to submit your voice question. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error submitting voice question:', error);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  // Voice recording functions removed for clean demo
 
   const handleAskNewQuestion = () => {
     setShowQuestionModal(true);
@@ -543,16 +499,7 @@ export default function AnonymousQuestionsScreen() {
             <Text style={styles.askDescription}>
               Speak your question privately or type it below. Your identity will remain completely anonymous.
             </Text>
-            <View style={styles.voiceContainer}>
-              <VoiceRecorder
-                onTranscript={handleVoiceTranscript}
-                onStart={handleVoiceStart}
-                onStop={handleVoiceStop}
-                isListening={isListening}
-                disabled={false}
-              />
-              <Text style={styles.voiceLabel}>Speak your question privately</Text>
-            </View>
+            {/* Voice recording removed for clean demo */}
             <TouchableOpacity style={styles.textInputButton} onPress={handleAskNewQuestion}>
               <Text style={styles.textInputButtonText}>Type your question here...</Text>
             </TouchableOpacity>
@@ -884,17 +831,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     lineHeight: Typography.lineHeights.relaxed * Typography.sizes.base,
   },
-  voiceContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  voiceLabel: {
-    fontSize: Typography.sizes.sm,
-    fontFamily: Typography.bodyMedium,
-    color: Colors.primary,
-    marginTop: 8,
-    textAlign: 'center',
-  },
+  // Voice recording styles removed for clean demo
   textInputButton: {
     backgroundColor: Colors.primaryLight,
     borderRadius: 8,
