@@ -566,7 +566,10 @@ export default function OnboardingScreen() {
         `Setup complete! ${onboardingData.motherBmi > 0 ? `Your BMI is ${onboardingData.motherBmi} (${bmiStatus}).` : ''} We'll help you track your health journey.`,
         [{ 
           text: 'Continue', 
-          onPress: () => router.replace('/dashboard') 
+          onPress: () => {
+            console.log('🎉 Onboarding completed successfully, navigating to dashboard');
+            router.replace('/dashboard');
+          }
         }]
       );
     } catch (error) {

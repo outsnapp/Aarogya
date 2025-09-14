@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, UserProfile } from '../lib/supabase';
 
 interface AuthContextType {
@@ -24,6 +25,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
+
+  // Cache for onboarding status to avoid repeated database calls
+  const [onboardingCache, setOnboardingCache] = useState<Map<string, boolean>>(new Map());
+
+  // Save onboarding status to AsyncStorage
+  const saveOnboardingStatus = async (userId: string, isCompleted: boolean) => {
+    try {
+      const key = `onboarding_completed_${userId}`;
+      await AsyncStorage.setItem(key, JSON.stringify({
+        completed: isCompleted,
+        timestamp: Date.now()
+      }));
+      console.log('💾 Saved onboarding status to storage:', { userId, isCompleted });
+    } catch (error) {
+      console.error('Error saving onboarding status:', error);
+    }
+  };
+
+  // Load onboarding status from AsyncStorage
+  const loadOnboardingStatus = async (userId: string): Promise<boolean | null> => {
+    try {
+      const key = `onboarding_completed_${userId}`;
+      const stored = await AsyncStorage.getItem(key);
+      if (stored) {
+        const data = JSON.parse(stored);
+        // Check if the data is not too old (24 hours)
+        const isRecent = (Date.now() - data.timestamp) < (24 * 60 * 60 * 1000);
+        if (isRecent) {
+          console.log('📱 Loaded onboarding status from storage:', { userId, completed: data.completed });
+          return data.completed;
+        } else {
+          // Remove old data
+          await AsyncStorage.removeItem(key);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading onboarding status:', error);
+    }
+    return null;
+  };
 
   useEffect(() => {
     // Get initial session
@@ -57,6 +98,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      // First, try to load from cache/storage
+      const cachedStatus = await loadOnboardingStatus(userId);
+      if (cachedStatus !== null) {
+        console.log('🚀 Using cached onboarding status:', cachedStatus);
+        setOnboardingCompleted(cachedStatus);
+        // Still fetch profile for other data, but use cached onboarding status
+      }
+
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -73,10 +122,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Check if onboarding is completed based on profile data
       if (data) {
-        const isCompleted = await checkIfOnboardingCompleted(data);
-        setOnboardingCompleted(isCompleted);
+        // Only check database if we don't have cached status
+        if (cachedStatus === null) {
+          const isCompleted = await checkIfOnboardingCompleted(data);
+          setOnboardingCompleted(isCompleted);
+          // Save to cache for future use
+          await saveOnboardingStatus(userId, isCompleted);
+        } else {
+          // Verify cached status is still accurate
+          const isCompleted = await checkIfOnboardingCompleted(data);
+          if (isCompleted !== cachedStatus) {
+            console.log('🔄 Cached status outdated, updating:', { cached: cachedStatus, actual: isCompleted });
+            setOnboardingCompleted(isCompleted);
+            await saveOnboardingStatus(userId, isCompleted);
+          }
+        }
       } else {
         setOnboardingCompleted(false);
+        await saveOnboardingStatus(userId, false);
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -137,6 +200,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return false;
     
     try {
+      // First check cache
+      const cachedStatus = await loadOnboardingStatus(user.id);
+      if (cachedStatus !== null) {
+        console.log('🚀 Using cached onboarding status in checkOnboardingStatus:', cachedStatus);
+        setOnboardingCompleted(cachedStatus);
+        return cachedStatus;
+      }
+
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -144,14 +215,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error || !data) {
+        setOnboardingCompleted(false);
+        await saveOnboardingStatus(user.id, false);
         return false;
       }
 
       const isCompleted = await checkIfOnboardingCompleted(data);
       setOnboardingCompleted(isCompleted);
+      await saveOnboardingStatus(user.id, isCompleted);
       return isCompleted;
     } catch (error) {
       console.error('Error checking onboarding status:', error);
+      setOnboardingCompleted(false);
       return false;
     }
   };
@@ -228,6 +303,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
         setUserProfile(null);
         setOnboardingCompleted(false);
+        // Clear onboarding cache
+        setOnboardingCache(new Map());
       }
       
       return { error };

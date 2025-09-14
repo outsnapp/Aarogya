@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, TextInput, Modal, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -15,6 +15,8 @@ import { Svg, Path, Circle, G, Rect } from 'react-native-svg';
 
 import { Colors, Typography } from '../constants/Colors';
 import VoiceRecorder from '../components/VoiceRecorder';
+import { useAuth } from '../contexts/AuthContext';
+import { MotherHealthService, MotherHealthMetrics, DailyCheckIn, NutritionEntry, ExerciseEntry } from '../lib/motherHealthService';
 
 const { width } = Dimensions.get('window');
 
@@ -324,10 +326,65 @@ const QuickAction = ({ title, icon, onPress, type, delay }: QuickActionProps) =>
 
 export default function MotherHealthScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  
+  // State management
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
-  const [showMealModal, setShowMealModal] = useState(false);
-  const [newMeal, setNewMeal] = useState('');
-  const [mealCalories, setMealCalories] = useState('');
+  
+  // Data state
+  const [healthData, setHealthData] = useState<any>(null);
+  const [todaysCheckInStatus, setTodaysCheckInStatus] = useState(false);
+  
+  // Modal states
+  const [showDailyCheckInModal, setShowDailyCheckInModal] = useState(false);
+  const [showHealthMetricsModal, setShowHealthMetricsModal] = useState(false);
+  const [showNutritionModal, setShowNutritionModal] = useState(false);
+  const [showExerciseModal, setShowExerciseModal] = useState(false);
+  
+  // Form data
+  const [checkInData, setCheckInData] = useState({
+    overall_wellbeing: 7,
+    mood: 'good',
+    energy_level: 7,
+    sleep_quality: 7,
+    appetite: 7,
+    pain_level: 3,
+    stress_level: 4,
+    symptoms: [] as string[],
+    concerns: '',
+    goals_achieved: [] as string[],
+    notes: ''
+  });
+  
+  const [healthMetricsData, setHealthMetricsData] = useState({
+    weight: 0,
+    blood_pressure_systolic: 0,
+    blood_pressure_diastolic: 0,
+    energy_level: 7,
+    sleep_hours: 0,
+    mood_score: 7,
+    notes: ''
+  });
+  
+  const [nutritionData, setNutritionData] = useState({
+    meal_type: 'breakfast',
+    calories: 0,
+    protein_g: 0,
+    iron_mg: 0,
+    calcium_mg: 0,
+    water_ml: 0,
+    food_items: ''
+  });
+  
+  const [exerciseData, setExerciseData] = useState({
+    exercise_type: '',
+    duration_minutes: 0,
+    intensity: 'moderate' as 'low' | 'moderate' | 'high',
+    calories_burned: 0,
+    notes: ''
+  });
 
   // Animation values
   const headerOpacity = useSharedValue(0);
@@ -336,42 +393,26 @@ export default function MotherHealthScreen() {
   const sectionTranslateY = useSharedValue(30);
   const healthScorePulse = useSharedValue(1);
 
-  // Data
-  const nutritionMetrics: NutritionMetric[] = [
-    { name: 'Calories', current: 1800, target: 2200, unit: 'kcal', color: Colors.primary },
-    { name: 'Protein', current: 65, target: 80, unit: 'g', color: Colors.secondary },
-    { name: 'Iron', current: 18, target: 27, unit: 'mg', color: Colors.warning },
-    { name: 'Calcium', current: 1000, target: 1300, unit: 'mg', color: Colors.primary },
-    { name: 'Water', current: 8, target: 10, unit: 'glasses', color: Colors.primary },
-  ];
-
-  const meals: Meal[] = [
-    { name: 'Oatmeal with fruits', calories: 350, status: 'completed', time: '8:00 AM' },
-    { name: 'Dal, rice, vegetables', calories: 450, status: 'completed', time: '1:00 PM' },
-    { name: 'Nuts and yogurt', calories: 200, status: 'completed', time: '4:00 PM' },
-    { name: 'Roti with vegetables', calories: 400, status: 'planned', time: '8:00 PM' },
-  ];
-
-  const healthMetrics: HealthMetric[] = [
-    { name: 'Weight', value: '58 kg', status: 'good', trend: 'stable' },
-    { name: 'Blood Pressure', value: '110/70', status: 'good', trend: 'stable' },
-    { name: 'Energy Level', value: '7/10', status: 'good', trend: 'up' },
-    { name: 'Sleep Quality', value: '6.5 hours', status: 'warning', trend: 'down' },
-  ];
-
-  const recoveryProgress = [
-    { name: 'Physical Recovery', progress: 85, color: Colors.primary },
-    { name: 'Energy Restoration', progress: 70, color: Colors.secondary },
-    { name: 'Emotional Well-being', progress: 75, color: Colors.warning },
-    { name: 'Overall Health', progress: 78, color: Colors.primary },
-  ];
-
-  useEffect(() => {
-    // Header animation
+  // Load mother health data
+  const loadMotherHealthData = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const [healthDataResult, checkInStatus] = await Promise.all([
+        MotherHealthService.getMotherHealthData(user.id),
+        MotherHealthService.getTodaysCheckInStatus(user.id)
+      ]);
+      
+      setHealthData(healthDataResult);
+      setTodaysCheckInStatus(checkInStatus);
+      
+      // Trigger animations when data is loaded
     headerOpacity.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.quad) });
     headerTranslateY.value = withTiming(0, { duration: 500, easing: Easing.out(Easing.quad) });
 
-    // Section animation
     sectionOpacity.value = withDelay(
       300,
       withTiming(1, { duration: 600, easing: Easing.out(Easing.quad) })
@@ -381,7 +422,6 @@ export default function MotherHealthScreen() {
       withTiming(0, { duration: 600, easing: Easing.out(Easing.quad) })
     );
 
-    // Health score pulse animation
     healthScorePulse.value = withRepeat(
       withSequence(
         withTiming(1.05, { duration: 1000, easing: Easing.inOut(Easing.quad) }),
@@ -390,8 +430,20 @@ export default function MotherHealthScreen() {
       -1,
       false
     );
-  }, []);
+      
+    } catch (error) {
+      console.error('Error loading mother health data:', error);
+      setError('Failed to load health data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
+    loadMotherHealthData();
+  }, [user]);
+
+  // Handler functions
   const handleVoiceStart = () => {
     setIsListening(true);
   };
@@ -400,35 +452,121 @@ export default function MotherHealthScreen() {
     setIsListening(false);
   };
 
-  const handleVoiceTranscript = (text: string) => {
-    console.log('Meal transcript:', text);
+  const handleVoiceTranscript = async (text: string) => {
+    if (!user) return;
+    
+    try {
+      // Process voice transcript for health data
+      const healthMetrics: Omit<MotherHealthMetrics, 'id' | 'created_at'> = {
+        user_id: user.id,
+        recorded_date: new Date().toISOString().split('T')[0],
+        energy_level: 7,
+        mood_score: 7,
+        notes: `Voice input: ${text}`
+      };
+      
+      await MotherHealthService.saveHealthMetrics(healthMetrics);
+      Alert.alert('Success', 'Voice input processed and saved!');
+      loadMotherHealthData();
+    } catch (error) {
+      console.error('Error processing voice transcript:', error);
+      Alert.alert('Error', 'Failed to process voice input. Please try again.');
+    }
   };
 
-  const handleLogMeal = () => {
-    setShowMealModal(true);
+  const handleDailyCheckIn = () => {
+    setShowDailyCheckInModal(true);
   };
 
-  const handleTrackWater = () => {
-    console.log('Track water intake');
+  const handleHealthMetrics = () => {
+    setShowHealthMetricsModal(true);
   };
 
-  const handleHealthCheckin = () => {
-    console.log('Health check-in');
+  const handleLogNutrition = () => {
+    setShowNutritionModal(true);
   };
 
-  const handleNutritionTips = () => {
-    console.log('Nutrition tips');
+  const handleLogExercise = () => {
+    setShowExerciseModal(true);
   };
 
-  const handleSubmitMeal = () => {
-    if (newMeal.trim() && mealCalories.trim()) {
-      console.log('Meal logged:', {
-        name: newMeal,
-        calories: parseInt(mealCalories)
-      });
-      setNewMeal('');
-      setMealCalories('');
-      setShowMealModal(false);
+  const handleSubmitDailyCheckIn = async () => {
+    if (!user) return;
+    
+    try {
+      const checkIn: Omit<DailyCheckIn, 'id' | 'created_at'> = {
+        user_id: user.id,
+        date: new Date().toISOString().split('T')[0],
+        ...checkInData
+      };
+      
+      await MotherHealthService.saveDailyCheckIn(checkIn);
+      Alert.alert('Success', 'Daily check-in saved successfully!');
+      setShowDailyCheckInModal(false);
+      setTodaysCheckInStatus(true);
+      loadMotherHealthData();
+    } catch (error) {
+      console.error('Error saving daily check-in:', error);
+      Alert.alert('Error', 'Failed to save check-in. Please try again.');
+    }
+  };
+
+  const handleSubmitHealthMetrics = async () => {
+    if (!user) return;
+    
+    try {
+      const metrics: Omit<MotherHealthMetrics, 'id' | 'created_at'> = {
+        user_id: user.id,
+        ...healthMetricsData
+      };
+      
+      await MotherHealthService.saveHealthMetrics(metrics);
+      Alert.alert('Success', 'Health metrics saved successfully!');
+      setShowHealthMetricsModal(false);
+      loadMotherHealthData();
+    } catch (error) {
+      console.error('Error saving health metrics:', error);
+      Alert.alert('Error', 'Failed to save health metrics. Please try again.');
+    }
+  };
+
+  const handleSubmitNutrition = async () => {
+    if (!user) return;
+    
+    try {
+      const nutrition: Omit<NutritionEntry, 'id' | 'created_at'> = {
+        user_id: user.id,
+        meal_date: new Date().toISOString().split('T')[0],
+        ...nutritionData
+      };
+      
+      await MotherHealthService.saveNutritionEntry(nutrition);
+      Alert.alert('Success', 'Nutrition entry saved successfully!');
+      setShowNutritionModal(false);
+      loadMotherHealthData();
+    } catch (error) {
+      console.error('Error saving nutrition entry:', error);
+      Alert.alert('Error', 'Failed to save nutrition entry. Please try again.');
+    }
+  };
+
+  const handleSubmitExercise = async () => {
+    if (!user) return;
+    
+    try {
+      const exercise: Omit<ExerciseEntry, 'id' | 'created_at'> = {
+        user_id: user.id,
+        date: new Date().toISOString().split('T')[0],
+        ...exerciseData
+      };
+      
+      await MotherHealthService.saveExerciseEntry(exercise);
+      Alert.alert('Success', 'Exercise entry saved successfully!');
+      setShowExerciseModal(false);
+      loadMotherHealthData();
+    } catch (error) {
+      console.error('Error saving exercise entry:', error);
+      Alert.alert('Error', 'Failed to save exercise entry. Please try again.');
     }
   };
 
@@ -451,11 +589,30 @@ export default function MotherHealthScreen() {
   }));
 
   const quickActions = [
-    { title: 'Log Meal', icon: <LogMealIcon size={24} />, onPress: handleLogMeal, type: 'primary' as const, delay: 1200 },
-    { title: 'Track Water', icon: <WaterIcon size={24} />, onPress: handleTrackWater, type: 'success' as const, delay: 1500 },
-    { title: 'Health Check-in', icon: <HealthIcon size={24} />, onPress: handleHealthCheckin, type: 'secondary' as const, delay: 1800 },
-    { title: 'Nutrition Tips', icon: <TipsIcon size={24} />, onPress: handleNutritionTips, type: 'secondary' as const, delay: 2100 },
+    { title: 'Daily Check-in', icon: <HealthIcon size={24} />, onPress: handleDailyCheckIn, type: 'primary' as const, delay: 1200 },
+    { title: 'Health Metrics', icon: <LogMealIcon size={24} />, onPress: handleHealthMetrics, type: 'secondary' as const, delay: 1500 },
+    { title: 'Log Nutrition', icon: <WaterIcon size={24} />, onPress: handleLogNutrition, type: 'success' as const, delay: 1800 },
+    { title: 'Log Exercise', icon: <TipsIcon size={24} />, onPress: handleLogExercise, type: 'secondary' as const, delay: 2100 },
   ];
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Loading your health data...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadMotherHealthData}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -473,118 +630,138 @@ export default function MotherHealthScreen() {
 
         {/* Health Score Header */}
         <Animated.View style={[styles.healthScoreCard, animatedHealthScoreStyle]}>
-          <Text style={styles.healthScoreTitle}>💪 Health Score: 78/100</Text>
-          <Text style={styles.healthScoreSubtitle}>You're doing great! Keep up the good work.</Text>
+          <Text style={styles.healthScoreTitle}>
+            💪 Health Score: {healthData?.summary?.overallHealth || 'Good'}
+          </Text>
+          <Text style={styles.healthScoreSubtitle}>
+            {healthData?.summary?.recommendations?.[0] || "You're doing great! Keep up the good work."}
+          </Text>
+          {todaysCheckInStatus && (
+            <Text style={styles.checkInStatus}>✅ Today's check-in completed</Text>
+          )}
         </Animated.View>
 
-        {/* Daily Nutrition Tracking */}
+        {/* Recent Health Metrics */}
         <Animated.View style={[styles.section, animatedSectionStyle]}>
-          <Text style={styles.sectionTitle}>Daily Nutrition Tracking</Text>
-          <View style={styles.nutritionCard}>
-            {nutritionMetrics.map((metric, index) => (
-              <NutritionBar
+          <Text style={styles.sectionTitle}>Recent Health Metrics</Text>
+          <View style={styles.healthMetricsGrid}>
+            {healthData?.healthMetrics?.length > 0 ? (
+              healthData.healthMetrics.slice(0, 4).map((metric: any, index: number) => (
+                <HealthMetricCard
                 key={index}
-                metric={metric}
+                  metric={{
+                    name: 'Weight',
+                    value: `${metric.weight || 0} kg`,
+                    status: (metric.weight || 0) > 0 ? 'good' : 'warning',
+                    trend: 'stable'
+                  }}
                 delay={600 + (index * 100)}
               />
-            ))}
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No health metrics recorded yet</Text>
+                <TouchableOpacity style={styles.emptyStateButton} onPress={handleHealthMetrics}>
+                  <Text style={styles.emptyStateButtonText}>Add Health Metrics</Text>
+                </TouchableOpacity>
+          </View>
+            )}
           </View>
         </Animated.View>
 
-        {/* Meal Planning */}
+        {/* Recent Daily Check-ins */}
         <Animated.View style={[styles.section, animatedSectionStyle]}>
-          <Text style={styles.sectionTitle}>Meal Planning</Text>
-          <View style={styles.mealsCard}>
-            {meals.map((meal, index) => (
-              <MealItem
-                key={index}
-                meal={meal}
-                delay={1100 + (index * 150)}
-              />
-            ))}
-          </View>
-        </Animated.View>
-
-        {/* Health Metrics */}
-        <Animated.View style={[styles.section, animatedSectionStyle]}>
-          <Text style={styles.sectionTitle}>Health Metrics</Text>
-          <View style={styles.healthMetricsGrid}>
-            {healthMetrics.map((metric, index) => (
-              <HealthMetricCard
-                key={index}
-                metric={metric}
-                delay={1700 + (index * 100)}
-              />
-            ))}
-          </View>
-        </Animated.View>
-
-        {/* Recovery Progress */}
-        <Animated.View style={[styles.section, animatedSectionStyle]}>
-          <Text style={styles.sectionTitle}>Recovery Progress</Text>
-          <View style={styles.recoveryCard}>
-            {recoveryProgress.map((item, index) => (
-              <View key={index} style={styles.recoveryItem}>
-                <View style={styles.recoveryHeader}>
-                  <Text style={styles.recoveryName}>{item.name}</Text>
-                  <Text style={styles.recoveryPercentage}>{item.progress}%</Text>
+          <Text style={styles.sectionTitle}>Recent Daily Check-ins</Text>
+          <View style={styles.checkInsCard}>
+            {healthData?.dailyCheckIns?.length > 0 ? (
+              healthData.dailyCheckIns.slice(0, 3).map((checkIn: any, index: number) => (
+                <View key={index} style={styles.checkInItem}>
+                  <Text style={styles.checkInDate}>
+                    {new Date(checkIn.date).toLocaleDateString()}
+                  </Text>
+                  <Text style={styles.checkInWellbeing}>
+                    Wellbeing: {checkIn.overall_wellbeing}/10
+                  </Text>
+                  <Text style={styles.checkInMood}>
+                    Mood: {checkIn.mood} | Energy: {checkIn.energy_level}/10
+                  </Text>
                 </View>
-                <View style={styles.recoveryProgressBar}>
-                  <View style={[
-                    styles.recoveryProgressFill,
-                    { 
-                      width: `${item.progress}%`,
-                      backgroundColor: item.color
-                    }
-                  ]} />
-                </View>
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No daily check-ins yet</Text>
+                <TouchableOpacity style={styles.emptyStateButton} onPress={handleDailyCheckIn}>
+                  <Text style={styles.emptyStateButtonText}>Start Daily Check-in</Text>
+                </TouchableOpacity>
               </View>
-            ))}
+            )}
           </View>
         </Animated.View>
 
-        {/* Nutritional Insights */}
+        {/* Recent Nutrition Entries */}
         <Animated.View style={[styles.section, animatedSectionStyle]}>
-          <Text style={styles.sectionTitle}>Nutritional Insights</Text>
+          <Text style={styles.sectionTitle}>Recent Nutrition Entries</Text>
+          <View style={styles.nutritionCard}>
+            {healthData?.nutritionEntries?.length > 0 ? (
+              healthData.nutritionEntries.slice(0, 3).map((entry: any, index: number) => (
+                <View key={index} style={styles.nutritionItem}>
+                  <Text style={styles.nutritionName}>
+                    {entry.meal_type.charAt(0).toUpperCase() + entry.meal_type.slice(1)}
+                  </Text>
+                  <Text style={styles.nutritionValue}>
+                    {entry.calories || 0} kcal | {entry.protein_g || 0}g protein
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No nutrition entries yet</Text>
+                <TouchableOpacity style={styles.emptyStateButton} onPress={handleLogNutrition}>
+                  <Text style={styles.emptyStateButtonText}>Log Nutrition</Text>
+                </TouchableOpacity>
+                </View>
+            )}
+          </View>
+        </Animated.View>
+
+        {/* Health Insights */}
+        <Animated.View style={[styles.section, animatedSectionStyle]}>
+          <Text style={styles.sectionTitle}>Health Insights</Text>
           <View style={styles.insightsCard}>
-            <View style={styles.insightItem}>
-              <Text style={styles.insightTitle}>Strengths:</Text>
-              <Text style={styles.insightText}>Good protein intake, regular meals</Text>
+            {healthData?.insights?.length > 0 ? (
+              healthData.insights.map((insight: any, index: number) => (
+                <View key={index} style={styles.insightItem}>
+                  <Text style={styles.insightTitle}>{insight.title}</Text>
+                  <Text style={styles.insightText}>{insight.description}</Text>
+                  <Text style={styles.insightRecommendation}>{insight.recommendation}</Text>
             </View>
-            <View style={styles.insightItem}>
-              <Text style={styles.insightTitle}>Areas to Improve:</Text>
-              <Text style={styles.insightText}>Need more iron-rich foods</Text>
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>No insights available yet</Text>
+                <Text style={styles.emptyStateSubtext}>Complete daily check-ins to get personalized insights</Text>
             </View>
-            <View style={styles.insightItem}>
-              <Text style={styles.insightTitle}>Recommendations:</Text>
-              <Text style={styles.insightText}>Add spinach, dates, and lentils</Text>
-            </View>
-            <View style={styles.insightItem}>
-              <Text style={styles.insightTitle}>Supplements:</Text>
-              <Text style={styles.insightText}>Continue prenatal vitamins</Text>
-            </View>
+            )}
           </View>
         </Animated.View>
 
-        {/* Health Alerts */}
+        {/* Health Recommendations */}
         <Animated.View style={[styles.section, animatedSectionStyle]}>
-          <Text style={styles.sectionTitle}>Health Alerts</Text>
+          <Text style={styles.sectionTitle}>Health Recommendations</Text>
           <View style={styles.alertsCard}>
-            <View style={[styles.alertItem, { backgroundColor: Colors.primary + '20' }]}>
+            {healthData?.summary?.recommendations?.map((recommendation: string, index: number) => (
+              <View key={index} style={[styles.alertItem, { backgroundColor: Colors.primary + '20' }]}>
               <Text style={[styles.alertText, { color: Colors.primary }]}>
-                ✅ Your energy is improving daily!
+                  💡 {recommendation}
               </Text>
             </View>
-            <View style={[styles.alertItem, { backgroundColor: Colors.warning + '20' }]}>
-              <Text style={[styles.alertText, { color: Colors.warning }]}>
-                ⚠️ Drink more water - you're slightly dehydrated
+            )) || (
+              <View style={[styles.alertItem, { backgroundColor: Colors.primary + '20' }]}>
+                <Text style={[styles.alertText, { color: Colors.primary }]}>
+                  ✅ Keep up the great work with your health journey!
               </Text>
             </View>
-            <View style={[styles.alertItem, { backgroundColor: Colors.secondary + '20' }]}>
-              <Text style={[styles.alertText, { color: Colors.secondary }]}>
-                💡 Don't forget your evening walk
-              </Text>
-            </View>
+            )}
           </View>
         </Animated.View>
 
@@ -607,7 +784,7 @@ export default function MotherHealthScreen() {
 
         {/* Voice Integration */}
         <Animated.View style={[styles.voiceSection, animatedSectionStyle]}>
-          <Text style={styles.voiceTitle}>Tell me about your meals today</Text>
+          <Text style={styles.voiceTitle}>Tell me about your health today</Text>
           <VoiceRecorder
             onTranscript={handleVoiceTranscript}
             onStart={handleVoiceStart}
@@ -618,59 +795,361 @@ export default function MotherHealthScreen() {
         </Animated.View>
       </ScrollView>
 
-      {/* Meal Logging Modal */}
+      {/* Daily Check-in Modal */}
       <Modal
-        visible={showMealModal}
+        visible={showDailyCheckInModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowMealModal(false)}
+        onRequestClose={() => setShowDailyCheckInModal(false)}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={() => setShowMealModal(false)}>
+            <TouchableOpacity onPress={() => setShowDailyCheckInModal(false)}>
               <Text style={styles.modalCloseButton}>Cancel</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Log Meal</Text>
-            <TouchableOpacity onPress={handleSubmitMeal}>
-              <Text style={styles.modalSubmitButton}>Log</Text>
+            <Text style={styles.modalTitle}>Daily Check-in</Text>
+            <TouchableOpacity onPress={handleSubmitDailyCheckIn}>
+              <Text style={styles.modalSubmitButton}>Save</Text>
             </TouchableOpacity>
           </View>
           
           <ScrollView style={styles.modalContent}>
-            <Text style={styles.modalLabel}>Meal Name:</Text>
+            <Text style={styles.modalLabel}>Overall Wellbeing (1-10):</Text>
             <TextInput
               style={styles.modalTextInput}
-              value={newMeal}
-              onChangeText={setNewMeal}
-              placeholder="e.g., Dal with rice and vegetables"
+              value={checkInData.overall_wellbeing.toString()}
+              onChangeText={(text) => setCheckInData({...checkInData, overall_wellbeing: parseInt(text) || 7})}
+              placeholder="7"
+              keyboardType="numeric"
             />
+            
+            <Text style={styles.modalLabel}>Mood:</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={checkInData.mood}
+              onChangeText={(text) => setCheckInData({...checkInData, mood: text})}
+              placeholder="good, okay, tired, etc."
+            />
+            
+            <Text style={styles.modalLabel}>Energy Level (1-10):</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={checkInData.energy_level.toString()}
+              onChangeText={(text) => setCheckInData({...checkInData, energy_level: parseInt(text) || 7})}
+              placeholder="7"
+              keyboardType="numeric"
+            />
+            
+            <Text style={styles.modalLabel}>Sleep Quality (1-10):</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={checkInData.sleep_quality.toString()}
+              onChangeText={(text) => setCheckInData({...checkInData, sleep_quality: parseInt(text) || 7})}
+              placeholder="7"
+              keyboardType="numeric"
+            />
+            
+            <Text style={styles.modalLabel}>Pain Level (1-10):</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={checkInData.pain_level.toString()}
+              onChangeText={(text) => setCheckInData({...checkInData, pain_level: parseInt(text) || 3})}
+              placeholder="3"
+              keyboardType="numeric"
+            />
+            
+            <Text style={styles.modalLabel}>Stress Level (1-10):</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={checkInData.stress_level.toString()}
+              onChangeText={(text) => setCheckInData({...checkInData, stress_level: parseInt(text) || 4})}
+              placeholder="4"
+              keyboardType="numeric"
+            />
+            
+            <Text style={styles.modalLabel}>Concerns:</Text>
+            <TextInput
+              style={[styles.modalTextInput, styles.textArea]}
+              value={checkInData.concerns}
+              onChangeText={(text) => setCheckInData({...checkInData, concerns: text})}
+              placeholder="Any concerns or symptoms..."
+              multiline
+              numberOfLines={3}
+            />
+            
+            <Text style={styles.modalLabel}>Notes:</Text>
+            <TextInput
+              style={[styles.modalTextInput, styles.textArea]}
+              value={checkInData.notes}
+              onChangeText={(text) => setCheckInData({...checkInData, notes: text})}
+              placeholder="Additional notes..."
+              multiline
+              numberOfLines={3}
+            />
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Health Metrics Modal */}
+      <Modal
+        visible={showHealthMetricsModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowHealthMetricsModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowHealthMetricsModal(false)}>
+              <Text style={styles.modalCloseButton}>Cancel</Text>
+                </TouchableOpacity>
+            <Text style={styles.modalTitle}>Health Metrics</Text>
+            <TouchableOpacity onPress={handleSubmitHealthMetrics}>
+              <Text style={styles.modalSubmitButton}>Save</Text>
+                </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            <Text style={styles.modalLabel}>Weight (kg):</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={healthMetricsData.weight.toString()}
+              onChangeText={(text) => setHealthMetricsData({...healthMetricsData, weight: parseFloat(text) || 0})}
+              placeholder="65.5"
+              keyboardType="numeric"
+            />
+            
+            <Text style={styles.modalLabel}>Blood Pressure (Systolic):</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={healthMetricsData.blood_pressure_systolic.toString()}
+              onChangeText={(text) => setHealthMetricsData({...healthMetricsData, blood_pressure_systolic: parseInt(text) || 0})}
+              placeholder="120"
+              keyboardType="numeric"
+            />
+            
+            <Text style={styles.modalLabel}>Blood Pressure (Diastolic):</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={healthMetricsData.blood_pressure_diastolic.toString()}
+              onChangeText={(text) => setHealthMetricsData({...healthMetricsData, blood_pressure_diastolic: parseInt(text) || 0})}
+              placeholder="80"
+              keyboardType="numeric"
+            />
+            
+            <Text style={styles.modalLabel}>Energy Level (1-10):</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={healthMetricsData.energy_level.toString()}
+              onChangeText={(text) => setHealthMetricsData({...healthMetricsData, energy_level: parseInt(text) || 7})}
+              placeholder="7"
+              keyboardType="numeric"
+            />
+            
+            <Text style={styles.modalLabel}>Mood Score (1-10):</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={healthMetricsData.mood_score.toString()}
+              onChangeText={(text) => setHealthMetricsData({...healthMetricsData, mood_score: parseInt(text) || 7})}
+              placeholder="7"
+              keyboardType="numeric"
+            />
+            
+            <Text style={styles.modalLabel}>Sleep Hours:</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={healthMetricsData.sleep_hours.toString()}
+              onChangeText={(text) => setHealthMetricsData({...healthMetricsData, sleep_hours: parseFloat(text) || 0})}
+              placeholder="7.5"
+              keyboardType="numeric"
+            />
+            
+            
+            <Text style={styles.modalLabel}>Notes:</Text>
+            <TextInput
+              style={[styles.modalTextInput, styles.textArea]}
+              value={healthMetricsData.notes}
+              onChangeText={(text) => setHealthMetricsData({...healthMetricsData, notes: text})}
+              placeholder="Additional notes..."
+              multiline
+              numberOfLines={3}
+            />
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Nutrition Modal */}
+      <Modal
+        visible={showNutritionModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowNutritionModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowNutritionModal(false)}>
+              <Text style={styles.modalCloseButton}>Cancel</Text>
+                </TouchableOpacity>
+            <Text style={styles.modalTitle}>Log Nutrition</Text>
+            <TouchableOpacity onPress={handleSubmitNutrition}>
+              <Text style={styles.modalSubmitButton}>Save</Text>
+                </TouchableOpacity>
+              </View>
+          
+          <ScrollView style={styles.modalContent}>
+            <Text style={styles.modalLabel}>Meal Type:</Text>
+            <View style={styles.radioGroup}>
+              {['breakfast', 'lunch', 'dinner', 'snack'].map((type) => (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    styles.radioButton,
+                    nutritionData.meal_type === type && styles.radioButtonSelected
+                  ]}
+                  onPress={() => setNutritionData({...nutritionData, meal_type: type as any})}
+                >
+                  <Text style={[
+                    styles.radioButtonText,
+                    nutritionData.meal_type === type && styles.radioButtonTextSelected
+                  ]}>
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             
             <Text style={styles.modalLabel}>Calories:</Text>
             <TextInput
               style={styles.modalTextInput}
-              value={mealCalories}
-              onChangeText={setMealCalories}
-              placeholder="e.g., 450"
+              value={nutritionData.calories.toString()}
+              onChangeText={(text) => setNutritionData({...nutritionData, calories: parseInt(text) || 0})}
+              placeholder="450"
               keyboardType="numeric"
             />
             
-            <View style={styles.mealSuggestions}>
-              <Text style={styles.suggestionsTitle}>Quick Add:</Text>
-              <View style={styles.suggestionButtons}>
-                <TouchableOpacity style={styles.suggestionButton}>
-                  <Text style={styles.suggestionText}>Breakfast (350 kcal)</Text>
+            <Text style={styles.modalLabel}>Protein (g):</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={nutritionData.protein_g.toString()}
+              onChangeText={(text) => setNutritionData({...nutritionData, protein_g: parseFloat(text) || 0})}
+              placeholder="25"
+              keyboardType="numeric"
+            />
+            
+            <Text style={styles.modalLabel}>Iron (mg):</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={nutritionData.iron_mg.toString()}
+              onChangeText={(text) => setNutritionData({...nutritionData, iron_mg: parseFloat(text) || 0})}
+              placeholder="18"
+              keyboardType="numeric"
+            />
+            
+            <Text style={styles.modalLabel}>Calcium (mg):</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={nutritionData.calcium_mg.toString()}
+              onChangeText={(text) => setNutritionData({...nutritionData, calcium_mg: parseFloat(text) || 0})}
+              placeholder="1000"
+              keyboardType="numeric"
+            />
+            
+            <Text style={styles.modalLabel}>Water (ml):</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={nutritionData.water_ml.toString()}
+              onChangeText={(text) => setNutritionData({...nutritionData, water_ml: parseInt(text) || 0})}
+              placeholder="250"
+              keyboardType="numeric"
+            />
+            
+            <Text style={styles.modalLabel}>Food Items:</Text>
+            <TextInput
+              style={[styles.modalTextInput, styles.textArea]}
+              value={nutritionData.food_items}
+              onChangeText={(text) => setNutritionData({...nutritionData, food_items: text})}
+              placeholder="What did you eat?"
+              multiline
+              numberOfLines={3}
+            />
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Exercise Modal */}
+      <Modal
+        visible={showExerciseModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowExerciseModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowExerciseModal(false)}>
+              <Text style={styles.modalCloseButton}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Log Exercise</Text>
+            <TouchableOpacity onPress={handleSubmitExercise}>
+              <Text style={styles.modalSubmitButton}>Save</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            <Text style={styles.modalLabel}>Exercise Type:</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={exerciseData.exercise_type}
+              onChangeText={(text) => setExerciseData({...exerciseData, exercise_type: text})}
+              placeholder="Walking, Yoga, Swimming, etc."
+            />
+            
+            <Text style={styles.modalLabel}>Duration (minutes):</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={exerciseData.duration_minutes.toString()}
+              onChangeText={(text) => setExerciseData({...exerciseData, duration_minutes: parseInt(text) || 0})}
+              placeholder="30"
+              keyboardType="numeric"
+            />
+            
+            <Text style={styles.modalLabel}>Intensity:</Text>
+            <View style={styles.radioGroup}>
+              {['low', 'moderate', 'high'].map((intensity) => (
+                <TouchableOpacity
+                  key={intensity}
+                  style={[
+                    styles.radioButton,
+                    exerciseData.intensity === intensity && styles.radioButtonSelected
+                  ]}
+                  onPress={() => setExerciseData({...exerciseData, intensity: intensity as any})}
+                >
+                  <Text style={[
+                    styles.radioButtonText,
+                    exerciseData.intensity === intensity && styles.radioButtonTextSelected
+                  ]}>
+                    {intensity.charAt(0).toUpperCase() + intensity.slice(1)}
+                  </Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.suggestionButton}>
-                  <Text style={styles.suggestionText}>Lunch (450 kcal)</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.suggestionButton}>
-                  <Text style={styles.suggestionText}>Snack (200 kcal)</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.suggestionButton}>
-                  <Text style={styles.suggestionText}>Dinner (400 kcal)</Text>
-                </TouchableOpacity>
-              </View>
+              ))}
             </View>
+            
+            <Text style={styles.modalLabel}>Calories Burned:</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={exerciseData.calories_burned.toString()}
+              onChangeText={(text) => setExerciseData({...exerciseData, calories_burned: parseInt(text) || 0})}
+              placeholder="200"
+              keyboardType="numeric"
+            />
+            
+            <Text style={styles.modalLabel}>Notes:</Text>
+            <TextInput
+              style={[styles.modalTextInput, styles.textArea]}
+              value={exerciseData.notes}
+              onChangeText={(text) => setExerciseData({...exerciseData, notes: text})}
+              placeholder="How did the exercise feel?"
+              multiline
+              numberOfLines={3}
+            />
           </ScrollView>
         </View>
       </Modal>
@@ -1109,6 +1588,149 @@ const styles = StyleSheet.create({
   suggestionText: {
     fontSize: Typography.sizes.sm,
     fontFamily: Typography.bodyMedium,
+    color: Colors.textPrimary,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+  },
+  loadingText: {
+    fontSize: Typography.sizes.lg,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.textMuted,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.background,
+    paddingHorizontal: 20,
+  },
+  errorText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.danger,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.textPrimary,
+  },
+  checkInStatus: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.textPrimary,
+    marginTop: 8,
+    opacity: 0.8,
+  },
+  checkInsCard: {
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: Colors.secondary,
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  checkInItem: {
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.primaryLight,
+  },
+  checkInDate: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  checkInWellbeing: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.primary,
+    marginBottom: 2,
+  },
+  checkInMood: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  emptyStateText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  emptyStateButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  emptyStateButtonText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.textPrimary,
+  },
+  insightRecommendation: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.primary,
+    marginTop: 4,
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  radioGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  radioButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+    backgroundColor: Colors.background,
+  },
+  radioButtonSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  radioButtonText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.textPrimary,
+  },
+  radioButtonTextSelected: {
     color: Colors.textPrimary,
   },
 });
