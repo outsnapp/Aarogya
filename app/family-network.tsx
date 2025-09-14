@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Switch, Alert, Modal, TextInput } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -14,24 +14,12 @@ import Animated, {
 import { Svg, Path, Circle, G } from 'react-native-svg';
 
 import { Colors, Typography } from '../constants/Colors';
+import { FamilyNetworkService, Contact, FamilySettings, Notification } from '../lib/familyNetworkService';
+import { useAuth } from '../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 
-interface Contact {
-  id: string;
-  name: string;
-  relationship: string;
-  phone: string;
-  type: 'primary' | 'secondary' | 'emergency';
-  status: 'active' | 'inactive';
-}
-
-interface Notification {
-  id: string;
-  time: string;
-  message: string;
-  contact: string;
-}
+// Remove duplicate interfaces since they're imported from service
 
 interface QuickActionProps {
   title: string;
@@ -311,60 +299,285 @@ const PrivacyControl = ({ title, description, value, onPress, delay }: PrivacyCo
 
 export default function FamilyNetworkScreen() {
   const router = useRouter();
-  const [dailyProgress, setDailyProgress] = useState(true);
-  const [emergencyAlerts, setEmergencyAlerts] = useState(true);
-  const [voiceMessages, setVoiceMessages] = useState(false);
-  const [locationSharing, setLocationSharing] = useState(true);
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const [showEditContactModal, setShowEditContactModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [privacySetting, setPrivacySetting] = useState<string>('');
+  
+  // State from service
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [familySettings, setFamilySettings] = useState<FamilySettings>({
+    dailyProgressUpdates: true,
+    emergencyAlertsOnly: true,
+    voiceMessageNotifications: false,
+    locationSharing: true,
+    shareMedicalHistory: 'limited',
+    locationSharingDuration: 24,
+    emergencyContactAccess: 'all_contacts',
+    autoShareLocation: false,
+    shareHealthMetrics: true,
+    shareNutritionData: false,
+    shareExerciseData: false
+  });
+  
+  // Form data for modals
+  const [newContactData, setNewContactData] = useState({
+    name: '',
+    relationship: '',
+    phone: '',
+    email: '',
+    type: 'secondary' as 'primary' | 'secondary' | 'emergency',
+    is_emergency_contact: false,
+    can_receive_updates: true,
+    can_receive_emergency_alerts: true
+  });
 
   // Animation values
   const headerOpacity = useSharedValue(0);
   const headerTranslateY = useSharedValue(-20);
 
-  // Data
-  const contacts: Contact[] = [
-    { id: '1', name: 'Rajesh', relationship: 'Husband', phone: '+91 98765 43210', type: 'primary', status: 'active' },
-    { id: '2', name: 'Sita', relationship: 'Mother', phone: '+91 98765 43211', type: 'secondary', status: 'active' },
-    { id: '3', name: 'Dr. Sharma', relationship: 'Family Doctor', phone: '+91 98765 43212', type: 'emergency', status: 'active' },
-  ];
-
-  const notifications: Notification[] = [
-    { id: '1', time: 'Today 2:30 PM', message: 'Notified Rajesh about your low energy', contact: 'Rajesh' },
-    { id: '2', time: 'Yesterday 10:15 AM', message: 'Sent progress update to Sita', contact: 'Sita' },
-    { id: '3', time: '2 days ago', message: 'Emergency alert sent to all contacts', contact: 'All Contacts' },
-  ];
-
+  // Load data on component mount
   useEffect(() => {
-    // Header animation
-    headerOpacity.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.quad) });
-    headerTranslateY.value = withTiming(0, { duration: 500, easing: Easing.out(Easing.quad) });
-  }, []);
+    if (user) {
+      loadData();
+    }
+  }, [user]);
 
-  const handleTestEmergencyAlert = () => {
-    console.log('Test emergency alert sent');
+  const loadData = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      // Load data in parallel for speed
+      const [contactsData, notificationsData, settingsData] = await Promise.all([
+        FamilyNetworkService.getFamilyContacts(user.id),
+        FamilyNetworkService.getNotificationHistory(user.id, 5), // Limit to 5 for speed
+        FamilyNetworkService.getFamilySettings()
+      ]);
+      
+      // Batch state updates for performance
+      setContacts(contactsData);
+      setNotifications(notificationsData);
+      setFamilySettings(settingsData);
+      
+      // Trigger animations immediately
+      headerOpacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) });
+      headerTranslateY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
+    } catch (error) {
+      console.error('Error loading family network data:', error);
+      Alert.alert('Error', 'Failed to load family network data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Animations are now triggered in loadData for better performance
+
+  const handleTestEmergencyAlert = async () => {
+    if (!user) return;
+    
+    Alert.alert(
+      'Test Emergency Alert',
+      'This will send a test emergency alert to all your emergency contacts. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Send Test Alert', 
+          onPress: async () => {
+            try {
+              const result = await FamilyNetworkService.testEmergencyAlert(user.id);
+              if (result.success) {
+                Alert.alert('Success', 'Test emergency alert sent successfully!');
+                await loadData(); // Reload to show new notification
+              } else {
+                Alert.alert('Error', 'Failed to send test emergency alert');
+              }
+            } catch (error) {
+              console.error('Error sending test emergency alert:', error);
+              Alert.alert('Error', 'Failed to send test emergency alert');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleAddNewContact = () => {
-    console.log('Add new contact');
+    setNewContactData({
+      name: '',
+      relationship: '',
+      phone: '',
+      email: '',
+      type: 'secondary',
+      is_emergency_contact: false,
+      can_receive_updates: true,
+      can_receive_emergency_alerts: true
+    });
+    setShowAddContactModal(true);
   };
 
   const handleEditContactDetails = () => {
-    console.log('Edit contact details');
+    Alert.alert(
+      'Edit Contact',
+      'Select a contact to edit:',
+      contacts.map(contact => ({
+        text: `${contact.name} (${contact.relationship})`,
+        onPress: () => {
+          setSelectedContact(contact);
+          setNewContactData({
+            name: contact.name,
+            relationship: contact.relationship,
+            phone: contact.phone,
+            email: contact.email || '',
+            type: contact.type,
+            is_emergency_contact: contact.is_emergency_contact,
+            can_receive_updates: contact.can_receive_updates,
+            can_receive_emergency_alerts: contact.can_receive_emergency_alerts
+          });
+          setShowEditContactModal(true);
+        }
+      })).concat([{ text: 'Cancel', style: 'cancel' }])
+    );
   };
 
   const handleViewNotificationHistory = () => {
-    console.log('View notification history');
+    Alert.alert(
+      'Notification History',
+      `You have ${notifications.length} recent notifications. The most recent ones are shown below.`,
+      [{ text: 'OK' }]
+    );
   };
 
   const handleShareMedicalHistory = () => {
-    console.log('Share medical history settings');
+    setPrivacySetting('shareMedicalHistory');
+    setShowPrivacyModal(true);
   };
 
   const handleLocationSharingDuration = () => {
-    console.log('Location sharing duration settings');
+    setPrivacySetting('locationSharingDuration');
+    setShowPrivacyModal(true);
   };
 
   const handleEmergencyContactAccess = () => {
-    console.log('Emergency contact access settings');
+    setPrivacySetting('emergencyContactAccess');
+    setShowPrivacyModal(true);
+  };
+
+  const handleSaveContact = async () => {
+    if (!user) return;
+    
+    if (!newContactData.name || !newContactData.phone) {
+      Alert.alert('Error', 'Please fill in name and phone number');
+      return;
+    }
+
+    try {
+      const result = await FamilyNetworkService.addContact(user.id, newContactData);
+      if (result.success) {
+        Alert.alert('Success', 'Contact added successfully!');
+        setShowAddContactModal(false);
+        await loadData();
+      } else {
+        Alert.alert('Error', 'Failed to add contact');
+      }
+    } catch (error) {
+      console.error('Error adding contact:', error);
+      Alert.alert('Error', 'Failed to add contact');
+    }
+  };
+
+  const handleUpdateContact = async () => {
+    if (!selectedContact) return;
+    
+    try {
+      const result = await FamilyNetworkService.updateContact(selectedContact.id, newContactData);
+      if (result.success) {
+        Alert.alert('Success', 'Contact updated successfully!');
+        setShowEditContactModal(false);
+        setSelectedContact(null);
+        await loadData();
+      } else {
+        Alert.alert('Error', 'Failed to update contact');
+      }
+    } catch (error) {
+      console.error('Error updating contact:', error);
+      Alert.alert('Error', 'Failed to update contact');
+    }
+  };
+
+  const handleDeleteContact = async (contactId: string) => {
+    Alert.alert(
+      'Delete Contact',
+      'Are you sure you want to delete this contact?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const result = await FamilyNetworkService.deleteContact(contactId);
+              if (result.success) {
+                Alert.alert('Success', 'Contact deleted successfully!');
+                await loadData();
+              } else {
+                Alert.alert('Error', 'Failed to delete contact');
+              }
+            } catch (error) {
+              console.error('Error deleting contact:', error);
+              Alert.alert('Error', 'Failed to delete contact');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleToggleSetting = async (settingKey: keyof FamilySettings) => {
+    try {
+      const success = await FamilyNetworkService.updateSetting(settingKey, !familySettings[settingKey]);
+      if (success) {
+        setFamilySettings(prev => ({ ...prev, [settingKey]: !prev[settingKey] }));
+      } else {
+        Alert.alert('Error', 'Failed to update setting');
+      }
+    } catch (error) {
+      console.error('Error toggling setting:', error);
+      Alert.alert('Error', 'Failed to update setting');
+    }
+  };
+
+  const handlePrivacySettingChange = async (value: string) => {
+    try {
+      let success = false;
+      
+      switch (privacySetting) {
+        case 'shareMedicalHistory':
+          success = await FamilyNetworkService.updateSetting('shareMedicalHistory', value as 'none' | 'limited' | 'full');
+          break;
+        case 'locationSharingDuration':
+          success = await FamilyNetworkService.updateSetting('locationSharingDuration', parseInt(value));
+          break;
+        case 'emergencyContactAccess':
+          success = await FamilyNetworkService.updateSetting('emergencyContactAccess', value as 'primary_only' | 'all_contacts');
+          break;
+      }
+      
+      if (success) {
+        setFamilySettings(prev => ({ ...prev, [privacySetting]: value }));
+        setShowPrivacyModal(false);
+        Alert.alert('Success', 'Setting updated successfully!');
+      } else {
+        Alert.alert('Error', 'Failed to update setting');
+      }
+    } catch (error) {
+      console.error('Error updating privacy setting:', error);
+      Alert.alert('Error', 'Failed to update setting');
+    }
   };
 
   const handleBackToDashboard = () => {
@@ -384,16 +597,20 @@ export default function FamilyNetworkScreen() {
   ];
 
   const settings = [
-    { title: 'Daily Progress Updates', description: 'Send daily progress updates to family', value: dailyProgress, onValueChange: setDailyProgress, delay: 2000 },
-    { title: 'Emergency Alerts Only', description: 'Only send emergency alerts', value: emergencyAlerts, onValueChange: setEmergencyAlerts, delay: 2200 },
-    { title: 'Voice Message Notifications', description: 'Send voice message notifications', value: voiceMessages, onValueChange: setVoiceMessages, delay: 2400 },
-    { title: 'Location Sharing', description: 'Share location with family members', value: locationSharing, onValueChange: setLocationSharing, delay: 2600 },
+    { title: 'Daily Progress Updates', description: 'Send daily progress updates to family', value: familySettings.dailyProgressUpdates, onValueChange: () => handleToggleSetting('dailyProgressUpdates'), delay: 2000 },
+    { title: 'Emergency Alerts Only', description: 'Only send emergency alerts', value: familySettings.emergencyAlertsOnly, onValueChange: () => handleToggleSetting('emergencyAlertsOnly'), delay: 2200 },
+    { title: 'Voice Message Notifications', description: 'Send voice message notifications', value: familySettings.voiceMessageNotifications, onValueChange: () => handleToggleSetting('voiceMessageNotifications'), delay: 2400 },
+    { title: 'Location Sharing', description: 'Share location with family members', value: familySettings.locationSharing, onValueChange: () => handleToggleSetting('locationSharing'), delay: 2600 },
+    { title: 'Auto Share Location', description: 'Automatically share location during emergencies', value: familySettings.autoShareLocation, onValueChange: () => handleToggleSetting('autoShareLocation'), delay: 2800 },
+    { title: 'Share Health Metrics', description: 'Include health metrics in updates', value: familySettings.shareHealthMetrics, onValueChange: () => handleToggleSetting('shareHealthMetrics'), delay: 3000 },
+    { title: 'Share Nutrition Data', description: 'Include nutrition data in updates', value: familySettings.shareNutritionData, onValueChange: () => handleToggleSetting('shareNutritionData'), delay: 3200 },
+    { title: 'Share Exercise Data', description: 'Include exercise data in updates', value: familySettings.shareExerciseData, onValueChange: () => handleToggleSetting('shareExerciseData'), delay: 3400 },
   ];
 
   const privacyControls = [
-    { title: 'Share Medical History', description: 'What family can see', value: 'Limited', onPress: handleShareMedicalHistory, delay: 2800 },
-    { title: 'Location Sharing Duration', description: 'How long to share location', value: '24 hours', onPress: handleLocationSharingDuration, delay: 3000 },
-    { title: 'Emergency Contact Access', description: 'Who can be contacted', value: 'All contacts', onPress: handleEmergencyContactAccess, delay: 3200 },
+    { title: 'Share Medical History', description: 'What family can see', value: familySettings.shareMedicalHistory.charAt(0).toUpperCase() + familySettings.shareMedicalHistory.slice(1), onPress: handleShareMedicalHistory, delay: 3600 },
+    { title: 'Location Sharing Duration', description: 'How long to share location', value: `${familySettings.locationSharingDuration} hours`, onPress: handleLocationSharingDuration, delay: 3800 },
+    { title: 'Emergency Contact Access', description: 'Who can be contacted', value: familySettings.emergencyContactAccess === 'all_contacts' ? 'All contacts' : 'Primary only', onPress: handleEmergencyContactAccess, delay: 4000 },
   ];
 
   return (
@@ -426,12 +643,19 @@ export default function FamilyNetworkScreen() {
         <Animated.View style={[styles.notificationsSection, animatedHeaderStyle]}>
           <Text style={styles.sectionTitle}>Recent Notifications Sent</Text>
           <View style={styles.notificationsCard}>
-            {notifications.map((notification, index) => (
-              <View key={notification.id} style={styles.notificationItem}>
-                <Text style={styles.notificationTime}>{notification.time}</Text>
-                <Text style={styles.notificationMessage}>{notification.message}</Text>
-              </View>
-            ))}
+            {notifications.length > 0 ? (
+              notifications.map((notification, index) => (
+                <View key={notification.id} style={styles.notificationItem}>
+                  <Text style={styles.notificationTime}>
+                    {new Date(notification.sent_at).toLocaleDateString()} {new Date(notification.sent_at).toLocaleTimeString()}
+                  </Text>
+                  <Text style={styles.notificationMessage}>{notification.message}</Text>
+                  <Text style={styles.notificationContact}>To: {notification.contact_name}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.emptyStateText}>No notifications sent yet</Text>
+            )}
           </View>
         </Animated.View>
 
@@ -482,6 +706,308 @@ export default function FamilyNetworkScreen() {
           ))}
         </View>
       </ScrollView>
+
+      {/* Add Contact Modal */}
+      <Modal
+        visible={showAddContactModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowAddContactModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowAddContactModal(false)}>
+              <Text style={styles.modalCloseButton}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Add New Contact</Text>
+            <TouchableOpacity onPress={handleSaveContact}>
+              <Text style={styles.modalSaveButton}>Save</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Name *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newContactData.name}
+                onChangeText={(text) => setNewContactData(prev => ({ ...prev, name: text }))}
+                placeholder="Enter contact name"
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Relationship</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newContactData.relationship}
+                onChangeText={(text) => setNewContactData(prev => ({ ...prev, relationship: text }))}
+                placeholder="e.g., Husband, Mother, Doctor"
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Phone Number *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newContactData.phone}
+                onChangeText={(text) => setNewContactData(prev => ({ ...prev, phone: text }))}
+                placeholder="+91 98765 43210"
+                keyboardType="phone-pad"
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email (Optional)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newContactData.email}
+                onChangeText={(text) => setNewContactData(prev => ({ ...prev, email: text }))}
+                placeholder="contact@example.com"
+                keyboardType="email-address"
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Contact Type</Text>
+              <View style={styles.radioGroup}>
+                {['primary', 'secondary', 'emergency'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={styles.radioButton}
+                    onPress={() => setNewContactData(prev => ({ ...prev, type: type as any }))}
+                  >
+                    <View style={[
+                      styles.radioCircle,
+                      newContactData.type === type && styles.radioCircleSelected
+                    ]}>
+                      {newContactData.type === type && <View style={styles.radioInner} />}
+                    </View>
+                    <Text style={styles.radioText}>{type.charAt(0).toUpperCase() + type.slice(1)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Permissions</Text>
+              <View style={styles.switchGroup}>
+                <View style={styles.switchItem}>
+                  <Text style={styles.switchLabel}>Can receive updates</Text>
+                  <Switch
+                    value={newContactData.can_receive_updates}
+                    onValueChange={(value) => setNewContactData(prev => ({ ...prev, can_receive_updates: value }))}
+                  />
+                </View>
+                <View style={styles.switchItem}>
+                  <Text style={styles.switchLabel}>Can receive emergency alerts</Text>
+                  <Switch
+                    value={newContactData.can_receive_emergency_alerts}
+                    onValueChange={(value) => setNewContactData(prev => ({ ...prev, can_receive_emergency_alerts: value }))}
+                  />
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Edit Contact Modal */}
+      <Modal
+        visible={showEditContactModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowEditContactModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowEditContactModal(false)}>
+              <Text style={styles.modalCloseButton}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Edit Contact</Text>
+            <View style={styles.modalHeaderRight}>
+              <TouchableOpacity onPress={() => selectedContact && handleDeleteContact(selectedContact.id)}>
+                <Text style={styles.modalDeleteButton}>Delete</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleUpdateContact}>
+                <Text style={styles.modalSaveButton}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Name *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newContactData.name}
+                onChangeText={(text) => setNewContactData(prev => ({ ...prev, name: text }))}
+                placeholder="Enter contact name"
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Relationship</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newContactData.relationship}
+                onChangeText={(text) => setNewContactData(prev => ({ ...prev, relationship: text }))}
+                placeholder="e.g., Husband, Mother, Doctor"
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Phone Number *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newContactData.phone}
+                onChangeText={(text) => setNewContactData(prev => ({ ...prev, phone: text }))}
+                placeholder="+91 98765 43210"
+                keyboardType="phone-pad"
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email (Optional)</Text>
+              <TextInput
+                style={styles.textInput}
+                value={newContactData.email}
+                onChangeText={(text) => setNewContactData(prev => ({ ...prev, email: text }))}
+                placeholder="contact@example.com"
+                keyboardType="email-address"
+              />
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Contact Type</Text>
+              <View style={styles.radioGroup}>
+                {['primary', 'secondary', 'emergency'].map((type) => (
+                  <TouchableOpacity
+                    key={type}
+                    style={styles.radioButton}
+                    onPress={() => setNewContactData(prev => ({ ...prev, type: type as any }))}
+                  >
+                    <View style={[
+                      styles.radioCircle,
+                      newContactData.type === type && styles.radioCircleSelected
+                    ]}>
+                      {newContactData.type === type && <View style={styles.radioInner} />}
+                    </View>
+                    <Text style={styles.radioText}>{type.charAt(0).toUpperCase() + type.slice(1)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Permissions</Text>
+              <View style={styles.switchGroup}>
+                <View style={styles.switchItem}>
+                  <Text style={styles.switchLabel}>Can receive updates</Text>
+                  <Switch
+                    value={newContactData.can_receive_updates}
+                    onValueChange={(value) => setNewContactData(prev => ({ ...prev, can_receive_updates: value }))}
+                  />
+                </View>
+                <View style={styles.switchItem}>
+                  <Text style={styles.switchLabel}>Can receive emergency alerts</Text>
+                  <Switch
+                    value={newContactData.can_receive_emergency_alerts}
+                    onValueChange={(value) => setNewContactData(prev => ({ ...prev, can_receive_emergency_alerts: value }))}
+                  />
+                </View>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Privacy Settings Modal */}
+      <Modal
+        visible={showPrivacyModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowPrivacyModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowPrivacyModal(false)}>
+              <Text style={styles.modalCloseButton}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Privacy Settings</Text>
+            <View style={styles.placeholder} />
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            {privacySetting === 'shareMedicalHistory' && (
+              <View>
+                <Text style={styles.modalSubtitle}>Share Medical History</Text>
+                <Text style={styles.modalDescription}>Choose what medical information family members can see:</Text>
+                {['none', 'limited', 'full'].map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={styles.privacyOption}
+                    onPress={() => handlePrivacySettingChange(option)}
+                  >
+                    <Text style={styles.privacyOptionText}>{option.charAt(0).toUpperCase() + option.slice(1)}</Text>
+                    <Text style={styles.privacyOptionDescription}>
+                      {option === 'none' && 'No medical information shared'}
+                      {option === 'limited' && 'Basic health status only'}
+                      {option === 'full' && 'Complete medical history'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            
+            {privacySetting === 'locationSharingDuration' && (
+              <View>
+                <Text style={styles.modalSubtitle}>Location Sharing Duration</Text>
+                <Text style={styles.modalDescription}>How long should location be shared:</Text>
+                {[1, 6, 12, 24, 48, 72].map((hours) => (
+                  <TouchableOpacity
+                    key={hours}
+                    style={styles.privacyOption}
+                    onPress={() => handlePrivacySettingChange(hours.toString())}
+                  >
+                    <Text style={styles.privacyOptionText}>{hours} hours</Text>
+                    <Text style={styles.privacyOptionDescription}>
+                      {hours === 1 && 'Very short term sharing'}
+                      {hours === 6 && 'Short term sharing'}
+                      {hours === 12 && 'Half day sharing'}
+                      {hours === 24 && 'Full day sharing'}
+                      {hours === 48 && 'Two day sharing'}
+                      {hours === 72 && 'Three day sharing'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            
+            {privacySetting === 'emergencyContactAccess' && (
+              <View>
+                <Text style={styles.modalSubtitle}>Emergency Contact Access</Text>
+                <Text style={styles.modalDescription}>Who can be contacted during emergencies:</Text>
+                {['primary_only', 'all_contacts'].map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={styles.privacyOption}
+                    onPress={() => handlePrivacySettingChange(option)}
+                  >
+                    <Text style={styles.privacyOptionText}>
+                      {option === 'primary_only' ? 'Primary contacts only' : 'All contacts'}
+                    </Text>
+                    <Text style={styles.privacyOptionDescription}>
+                      {option === 'primary_only' && 'Only primary contacts will be notified'}
+                      {option === 'all_contacts' && 'All family contacts will be notified'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -735,5 +1261,160 @@ const styles = StyleSheet.create({
   privacyArrow: {
     fontSize: Typography.sizes.lg,
     color: Colors.textMuted,
+  },
+  emptyStateText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    padding: 20,
+  },
+  notificationContact: {
+    fontSize: Typography.sizes.xs,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.primary,
+    marginTop: 4,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.primaryLight,
+  },
+  modalHeaderRight: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  modalCloseButton: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.textMuted,
+  },
+  modalSaveButton: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.primary,
+  },
+  modalDeleteButton: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.danger,
+  },
+  modalTitle: {
+    fontSize: Typography.sizes.lg,
+    fontFamily: Typography.heading,
+    color: Colors.textPrimary,
+  },
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  modalSubtitle: {
+    fontSize: Typography.sizes.lg,
+    fontFamily: Typography.heading,
+    color: Colors.textPrimary,
+    marginBottom: 8,
+  },
+  modalDescription: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    marginBottom: 20,
+    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.base,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.textPrimary,
+    marginBottom: 8,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.background,
+  },
+  radioGroup: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  radioButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: Colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioCircleSelected: {
+    borderColor: Colors.primary,
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.primary,
+  },
+  radioText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textPrimary,
+  },
+  switchGroup: {
+    gap: 12,
+  },
+  switchItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  switchLabel: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textPrimary,
+    flex: 1,
+  },
+  privacyOption: {
+    padding: 16,
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+    marginBottom: 12,
+  },
+  privacyOptionText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  privacyOptionDescription: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.sm,
   },
 });

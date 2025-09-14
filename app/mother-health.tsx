@@ -393,7 +393,7 @@ export default function MotherHealthScreen() {
   const sectionTranslateY = useSharedValue(30);
   const healthScorePulse = useSharedValue(1);
 
-  // Load mother health data
+  // Load mother health data with performance optimization
   const loadMotherHealthData = async () => {
     if (!user) return;
     
@@ -401,35 +401,31 @@ export default function MotherHealthScreen() {
       setLoading(true);
       setError(null);
       
+      // Load data in parallel for speed
       const [healthDataResult, checkInStatus] = await Promise.all([
         MotherHealthService.getMotherHealthData(user.id),
         MotherHealthService.getTodaysCheckInStatus(user.id)
       ]);
       
+      // Batch state updates for performance
       setHealthData(healthDataResult);
       setTodaysCheckInStatus(checkInStatus);
       
-      // Trigger animations when data is loaded
-    headerOpacity.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.quad) });
-    headerTranslateY.value = withTiming(0, { duration: 500, easing: Easing.out(Easing.quad) });
+      // Optimize animations - start immediately
+      headerOpacity.value = withTiming(1, { duration: 300, easing: Easing.out(Easing.quad) });
+      headerTranslateY.value = withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) });
 
-    sectionOpacity.value = withDelay(
-      300,
-      withTiming(1, { duration: 600, easing: Easing.out(Easing.quad) })
-    );
-    sectionTranslateY.value = withDelay(
-      300,
-      withTiming(0, { duration: 600, easing: Easing.out(Easing.quad) })
-    );
+      sectionOpacity.value = withDelay(200, withTiming(1, { duration: 400, easing: Easing.out(Easing.quad) }));
+      sectionTranslateY.value = withDelay(200, withTiming(0, { duration: 400, easing: Easing.out(Easing.quad) }));
 
-    healthScorePulse.value = withRepeat(
-      withSequence(
-        withTiming(1.05, { duration: 1000, easing: Easing.inOut(Easing.quad) }),
-        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.quad) })
-      ),
-      -1,
-      false
-    );
+      healthScorePulse.value = withRepeat(
+        withSequence(
+          withTiming(1.02, { duration: 800, easing: Easing.inOut(Easing.quad) }),
+          withTiming(1, { duration: 800, easing: Easing.inOut(Easing.quad) })
+        ),
+        -1,
+        false
+      );
       
     } catch (error) {
       console.error('Error loading mother health data:', error);
@@ -599,6 +595,7 @@ export default function MotherHealthScreen() {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>Loading your health data...</Text>
+        <Text style={styles.loadingSubtext}>This should only take a moment...</Text>
       </View>
     );
   }
@@ -1600,6 +1597,13 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.lg,
     fontFamily: Typography.bodyMedium,
     color: Colors.textMuted,
+  },
+  loadingSubtext: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    marginTop: 8,
+    opacity: 0.7,
   },
   errorContainer: {
     flex: 1,

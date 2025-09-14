@@ -71,37 +71,46 @@ export interface HealthInsight {
 }
 
 export class MotherHealthService {
-  // Get comprehensive mother health data
+  // Get comprehensive mother health data - OPTIMIZED FOR SPEED
   static async getMotherHealthData(userId: string) {
     try {
-      const [healthMetrics, dailyCheckIns, nutritionEntries, exerciseEntries, insights] = await Promise.all([
+      // Load essential data first (fast database queries)
+      const [healthMetrics, dailyCheckIns, nutritionEntries, exerciseEntries] = await Promise.all([
         this.getRecentHealthMetrics(userId),
         this.getRecentDailyCheckIns(userId),
         this.getRecentNutritionEntries(userId),
-        this.getRecentExerciseEntries(userId),
-        this.getHealthInsights(userId)
+        this.getRecentExerciseEntries(userId)
       ]);
 
-      return {
+      // Generate immediate local insights (no AI delay)
+      const localInsights = this.generateLocalHealthInsights(healthMetrics, dailyCheckIns, nutritionEntries, userId);
+
+      // Return data immediately with local insights
+      const result = {
         healthMetrics,
         dailyCheckIns,
         nutritionEntries,
         exerciseEntries,
-        insights,
+        insights: localInsights,
         summary: this.generateHealthSummary(healthMetrics, dailyCheckIns)
       };
+
+      // Load AI insights in background (non-blocking)
+      this.loadAIInsightsInBackground(userId, result);
+
+      return result;
     } catch (error) {
       console.error('Error fetching mother health data:', error);
       throw error;
     }
   }
 
-  // Health Metrics
+  // Health Metrics - OPTIMIZED FOR SPEED
   static async getRecentHealthMetrics(userId: string, limit: number = 7) {
     try {
       const { data, error } = await supabase
         .from('mother_health_metrics')
-        .select('*')
+        .select('id, user_id, recorded_date, weight, blood_pressure_systolic, blood_pressure_diastolic, energy_level, sleep_hours, mood_score, notes, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(limit);
@@ -130,13 +139,13 @@ export class MotherHealthService {
     }
   }
 
-  // Daily Check-ins - Use mother_health_metrics as fallback
+  // Daily Check-ins - OPTIMIZED FOR SPEED
   static async getRecentDailyCheckIns(userId: string, limit: number = 7) {
     try {
       // Try to get from mother_health_metrics as a fallback
       const { data, error } = await supabase
         .from('mother_health_metrics')
-        .select('*')
+        .select('id, user_id, recorded_date, energy_level, mood_score, notes, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(limit);
@@ -192,12 +201,12 @@ export class MotherHealthService {
     }
   }
 
-  // Nutrition Tracking - Use mother_nutrition table
+  // Nutrition Tracking - OPTIMIZED FOR SPEED
   static async getRecentNutritionEntries(userId: string, limit: number = 14) {
     try {
       const { data, error } = await supabase
         .from('mother_nutrition')
-        .select('*')
+        .select('id, user_id, meal_date, meal_type, calories, protein_g, iron_mg, calcium_mg, water_ml, food_items, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(limit);
@@ -273,7 +282,116 @@ export class MotherHealthService {
     }
   }
 
-  // Health Insights - Use AI service for intelligent insights
+  // Generate local health insights immediately (no AI delay)
+  private static generateLocalHealthInsights(healthMetrics: any[], dailyCheckIns: any[], nutritionEntries: any[], userId: string): any[] {
+    const insights: any[] = [];
+    const now = new Date().toISOString();
+
+    // Energy level insight
+    if (healthMetrics.length > 0) {
+      const latest = healthMetrics[0];
+      if (latest.energy_level && latest.energy_level < 5) {
+        insights.push({
+          id: `local-energy-${Date.now()}`,
+          user_id: userId,
+          category: 'local_analysis',
+          title: 'Energy Level Alert',
+          description: `Your energy level is ${latest.energy_level}/10, which is below optimal for recovery.`,
+          recommendation: 'Consider increasing rest periods, gentle exercise, and nutritious meals to boost energy levels.',
+          priority: 'medium',
+          created_at: now
+        });
+      }
+    }
+
+    // Sleep quality insight
+    if (healthMetrics.length > 0) {
+      const latest = healthMetrics[0];
+      if (latest.sleep_hours && latest.sleep_hours < 6) {
+        insights.push({
+          id: `local-sleep-${Date.now()}`,
+          user_id: userId,
+          category: 'local_analysis',
+          title: 'Sleep Optimization',
+          description: `You're getting ${latest.sleep_hours} hours of sleep, which may be insufficient for proper recovery.`,
+          recommendation: 'Aim for 7-9 hours of quality sleep each night. Create a relaxing bedtime routine.',
+          priority: 'high',
+          created_at: now
+        });
+      }
+    }
+
+    // Nutrition insight
+    if (nutritionEntries.length > 0) {
+      const totalCalories = nutritionEntries.reduce((sum: number, entry: any) => sum + (entry.calories || 0), 0);
+      const avgCalories = totalCalories / nutritionEntries.length;
+      
+      if (avgCalories < 1500) {
+        insights.push({
+          id: `local-nutrition-${Date.now()}`,
+          user_id: userId,
+          category: 'local_analysis',
+          title: 'Nutrition Monitoring',
+          description: `Your average daily calorie intake is ${Math.round(avgCalories)} calories.`,
+          recommendation: 'Ensure adequate nutrition for recovery. Focus on protein-rich foods and stay hydrated.',
+          priority: 'medium',
+          created_at: now
+        });
+      }
+    }
+
+    // Mood and wellbeing insight
+    if (dailyCheckIns.length > 0) {
+      const latest = dailyCheckIns[0];
+      if (latest.overall_wellbeing && latest.overall_wellbeing < 6) {
+        insights.push({
+          id: `local-wellbeing-${Date.now()}`,
+          user_id: userId,
+          category: 'local_analysis',
+          title: 'Wellbeing Support',
+          description: `Your overall wellbeing is ${latest.overall_wellbeing}/10. Recovery can be challenging.`,
+          recommendation: 'Be patient with yourself. Consider gentle activities that bring joy and connect with support systems.',
+          priority: 'medium',
+          created_at: now
+        });
+      }
+    }
+
+    // Default positive insight if no concerns
+    if (insights.length === 0) {
+      insights.push({
+        id: `local-positive-${Date.now()}`,
+        user_id: userId,
+        category: 'local_analysis',
+        title: 'Health Tracking Progress',
+        description: 'You are actively monitoring your health metrics and recovery progress.',
+        recommendation: 'Continue tracking your health data for better insights and recovery monitoring.',
+        priority: 'low',
+        created_at: now
+      });
+    }
+
+    return insights.slice(0, 5); // Limit to 5 insights
+  }
+
+  // Load AI insights in background (non-blocking)
+  private static async loadAIInsightsInBackground(userId: string, healthData: any): Promise<void> {
+    try {
+      // This runs in background and doesn't block the UI
+      setTimeout(async () => {
+        try {
+          const aiInsights = await AIService.generateMotherHealthInsights(userId, healthData);
+          console.log('✅ AI insights loaded in background:', aiInsights.length);
+        } catch (error) {
+          console.log('⚠️ AI insights failed in background (expected):', error.message);
+        }
+      }, 100); // Small delay to not interfere with UI
+    } catch (error) {
+      console.error('Error in background AI loading:', error);
+    }
+  }
+
+  // Health Insights - Use AI service for intelligent insights (kept for compatibility)
   static async getHealthInsights(userId: string, limit: number = 5) {
     try {
       // First try to get existing AI insights
@@ -283,7 +401,20 @@ export class MotherHealthService {
       }
 
       // If no existing insights, generate new ones using AI
-      const healthData = await this.getMotherHealthData(userId);
+      // Get data directly without calling getMotherHealthData to avoid recursion
+      const [healthMetrics, dailyCheckIns, nutritionEntries] = await Promise.all([
+        this.getRecentHealthMetrics(userId),
+        this.getRecentDailyCheckIns(userId),
+        this.getRecentNutritionEntries(userId)
+      ]);
+
+      const healthData = {
+        healthMetrics,
+        dailyCheckIns,
+        nutritionEntries,
+        summary: this.generateHealthSummary(healthMetrics, dailyCheckIns)
+      };
+
       const aiInsights = await AIService.generateMotherHealthInsights(userId, healthData);
       
       return aiInsights.slice(0, limit);
@@ -339,30 +470,40 @@ export class MotherHealthService {
 
     if (latestMetric) {
       // Blood pressure assessment
-      if (latestMetric.blood_pressure_systolic < 120 && latestMetric.blood_pressure_diastolic < 80) {
-        healthScore += 20;
-      } else if (latestMetric.blood_pressure_systolic < 140 && latestMetric.blood_pressure_diastolic < 90) {
-        healthScore += 15;
-      } else {
-        healthScore += 5;
+      if (latestMetric.blood_pressure_systolic && latestMetric.blood_pressure_diastolic) {
+        if (latestMetric.blood_pressure_systolic < 120 && latestMetric.blood_pressure_diastolic < 80) {
+          healthScore += 20;
+        } else if (latestMetric.blood_pressure_systolic < 140 && latestMetric.blood_pressure_diastolic < 90) {
+          healthScore += 15;
+        } else {
+          healthScore += 5;
+        }
+        factors++;
       }
-      factors++;
 
-      // Heart rate assessment (60-100 bpm is normal)
-      if (latestMetric.heart_rate >= 60 && latestMetric.heart_rate <= 100) {
-        healthScore += 20;
-      } else {
-        healthScore += 10;
+      // Energy level assessment
+      if (latestMetric.energy_level) {
+        healthScore += (latestMetric.energy_level * 2);
+        factors++;
       }
-      factors++;
 
-      // Temperature assessment (36.1-37.2°C is normal)
-      if (latestMetric.temperature_celsius >= 36.1 && latestMetric.temperature_celsius <= 37.2) {
-        healthScore += 20;
-      } else {
-        healthScore += 5;
+      // Mood score assessment
+      if (latestMetric.mood_score) {
+        healthScore += (latestMetric.mood_score * 2);
+        factors++;
       }
-      factors++;
+
+      // Sleep hours assessment
+      if (latestMetric.sleep_hours) {
+        if (latestMetric.sleep_hours >= 7 && latestMetric.sleep_hours <= 9) {
+          healthScore += 20;
+        } else if (latestMetric.sleep_hours >= 6 && latestMetric.sleep_hours <= 10) {
+          healthScore += 15;
+        } else {
+          healthScore += 5;
+        }
+        factors++;
+      }
     }
 
     if (latestCheckIn) {
@@ -383,7 +524,7 @@ export class MotherHealthService {
 
     // Generate recommendations
     const recommendations = [];
-    if (latestMetric && latestMetric.blood_pressure_systolic >= 140) {
+    if (latestMetric && latestMetric.blood_pressure_systolic && latestMetric.blood_pressure_systolic >= 140) {
       recommendations.push('Monitor blood pressure regularly and consult your doctor');
     }
     if (latestCheckIn && latestCheckIn.sleep_quality < 6) {
@@ -392,8 +533,11 @@ export class MotherHealthService {
     if (latestCheckIn && latestCheckIn.stress_level > 7) {
       recommendations.push('Consider stress management techniques like meditation or yoga');
     }
-    if (latestMetric && latestMetric.exercise_minutes < 30) {
-      recommendations.push('Aim for at least 30 minutes of moderate exercise daily');
+    if (latestMetric && latestMetric.sleep_hours && latestMetric.sleep_hours < 6) {
+      recommendations.push('Aim for 7-9 hours of quality sleep each night');
+    }
+    if (latestMetric && latestMetric.energy_level && latestMetric.energy_level < 5) {
+      recommendations.push('Consider increasing rest and gentle exercise to boost energy');
     }
 
     return {
@@ -422,8 +566,8 @@ export class MotherHealthService {
       }
       
       // Weight trend analysis
-      if (metrics.length >= 2) {
-        const weightChange = latest.weight_kg - metrics[1].weight_kg;
+      if (metrics.length >= 2 && latest.weight && metrics[1].weight) {
+        const weightChange = latest.weight - metrics[1].weight;
         if (Math.abs(weightChange) > 2) {
           return {
             title: 'Weight Change Detected',
@@ -495,11 +639,11 @@ export class MotherHealthService {
       ]);
 
       return {
-        weightTrend: metrics.map(m => ({ date: m.created_at, value: m.weight_kg })),
+        weightTrend: metrics.map(m => ({ date: m.created_at, value: m.weight || 0 })),
         bloodPressureTrend: metrics.map(m => ({ 
           date: m.created_at, 
-          systolic: m.blood_pressure_systolic, 
-          diastolic: m.blood_pressure_diastolic 
+          systolic: m.blood_pressure_systolic || 0, 
+          diastolic: m.blood_pressure_diastolic || 0 
         })),
         moodTrend: checkIns.map(c => ({ date: c.created_at, value: c.overall_wellbeing })),
         energyTrend: checkIns.map(c => ({ date: c.created_at, value: c.energy_level })),

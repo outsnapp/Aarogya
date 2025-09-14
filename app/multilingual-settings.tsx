@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Switch, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Switch, Modal, Alert, TextInput } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -15,17 +15,11 @@ import { Svg, Path, Circle, G, Rect } from 'react-native-svg';
 
 import { Colors, Typography } from '../constants/Colors';
 import VoiceRecorder from '../components/VoiceRecorder';
+import { MultilingualService, Language, LanguageSettings, RegionalSettings, VoiceTestResult } from '../lib/multilingualService';
 
 const { width } = Dimensions.get('window');
 
-interface Language {
-  code: string;
-  name: string;
-  nativeName: string;
-  voiceSupported: boolean;
-  textSupported: boolean;
-  accentSupported: boolean;
-}
+// Remove duplicate interface since it's imported from service
 
 interface QuickActionProps {
   title: string;
@@ -254,16 +248,42 @@ export default function MultilingualSettingsScreen() {
   const router = useRouter();
   const [isListening, setIsListening] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState('English');
-  const [secondaryLanguage, setSecondaryLanguage] = useState('Hindi');
-  const [voiceRecognitionEnabled, setVoiceRecognitionEnabled] = useState(true);
-  const [textDisplayEnabled, setTextDisplayEnabled] = useState(true);
-  const [accentRecognitionEnabled, setAccentRecognitionEnabled] = useState(true);
-  const [mixedLanguageEnabled, setMixedLanguageEnabled] = useState(true);
-  const [largeTextEnabled, setLargeTextEnabled] = useState(false);
-  const [highContrastEnabled, setHighContrastEnabled] = useState(false);
-  const [voiceNavigationEnabled, setVoiceNavigationEnabled] = useState(false);
-  const [audioDescriptionsEnabled, setAudioDescriptionsEnabled] = useState(false);
+  const [showCulturalModal, setShowCulturalModal] = useState(false);
+  const [showPhrasesModal, setShowPhrasesModal] = useState(false);
+  const [showPronunciationModal, setShowPronunciationModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  
+  // State from service
+  const [languageSettings, setLanguageSettings] = useState<LanguageSettings>({
+    primaryLanguage: 'English',
+    secondaryLanguage: 'Hindi',
+    voiceRecognitionEnabled: true,
+    textDisplayEnabled: true,
+    accentRecognitionEnabled: true,
+    mixedLanguageEnabled: true,
+    largeTextEnabled: false,
+    highContrastEnabled: false,
+    voiceNavigationEnabled: false,
+    audioDescriptionsEnabled: false,
+    autoTranslateEnabled: true,
+    culturalAdaptationEnabled: true
+  });
+  
+  const [regionalSettings, setRegionalSettings] = useState<RegionalSettings>({
+    timeZone: 'Asia/Kolkata',
+    dateFormat: 'DD/MM/YYYY',
+    currency: 'Indian Rupee (₹)',
+    measurement: 'Metric system',
+    temperatureUnit: 'Celsius'
+  });
+  
+  const [voiceTestResults, setVoiceTestResults] = useState<VoiceTestResult[]>([]);
+  const [languages, setLanguages] = useState<Language[]>([]);
+  const [culturalTips, setCulturalTips] = useState<string[]>([]);
+  const [healthPhrases, setHealthPhrases] = useState<{ english: string; native: string; pronunciation: string }[]>([]);
+  const [pronunciationGuide, setPronunciationGuide] = useState<{ word: string; pronunciation: string; audioUrl?: string }[]>([]);
 
   // Animation values
   const headerOpacity = useSharedValue(0);
@@ -272,28 +292,32 @@ export default function MultilingualSettingsScreen() {
   const sectionTranslateY = useSharedValue(30);
   const currentLanguagePulse = useSharedValue(1);
 
-  // Data
-  const languages: Language[] = [
-    { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी', voiceSupported: true, textSupported: true, accentSupported: true },
-    { code: 'en', name: 'English', nativeName: 'English', voiceSupported: true, textSupported: true, accentSupported: true },
-    { code: 'te', name: 'Telugu', nativeName: 'తెలుగు', voiceSupported: true, textSupported: true, accentSupported: true },
-    { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்', voiceSupported: true, textSupported: true, accentSupported: true },
-    { code: 'kn', name: 'Kannada', nativeName: 'ಕನ್ನಡ', voiceSupported: true, textSupported: true, accentSupported: true },
-    { code: 'ml', name: 'Malayalam', nativeName: 'മലയാളം', voiceSupported: true, textSupported: true, accentSupported: true },
-  ];
+  // Load data on component mount
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const regionalSettings = [
-    { name: 'Time Zone', value: 'Asia/Kolkata' },
-    { name: 'Date Format', value: 'DD/MM/YYYY' },
-    { name: 'Currency', value: 'Indian Rupee (₹)' },
-    { name: 'Measurement', value: 'Metric system' },
-  ];
-
-  const languageLearningFeatures = [
-    { name: 'Basic Phrases', description: 'Learn health-related phrases' },
-    { name: 'Pronunciation Guide', description: 'Voice pronunciation help' },
-    { name: 'Cultural Tips', description: 'Understanding local customs' },
-  ];
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [settings, regional, testResults, supportedLanguages] = await Promise.all([
+        MultilingualService.getLanguageSettings(),
+        MultilingualService.getRegionalSettings(),
+        MultilingualService.getVoiceTestResults(),
+        Promise.resolve(MultilingualService.getSupportedLanguages())
+      ]);
+      
+      setLanguageSettings(settings);
+      setRegionalSettings(regional);
+      setVoiceTestResults(testResults);
+      setLanguages(supportedLanguages);
+    } catch (error) {
+      console.error('Error loading multilingual data:', error);
+      Alert.alert('Error', 'Failed to load language settings');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Header animation
@@ -329,8 +353,24 @@ export default function MultilingualSettingsScreen() {
     setIsListening(false);
   };
 
-  const handleVoiceTranscript = (text: string) => {
-    console.log('Language test transcript:', text);
+  const handleVoiceTranscript = async (text: string) => {
+    try {
+      const result = await MultilingualService.testVoiceRecognition(
+        languageSettings.primaryLanguage, 
+        text
+      );
+      
+      setVoiceTestResults(prev => [result, ...prev]);
+      
+      Alert.alert(
+        'Voice Test Result',
+        `Language: ${result.language}\nAccuracy: ${result.accuracy}%\nConfidence: ${result.confidence}%\n\nTranscript: "${result.transcript}"`,
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Error testing voice recognition:', error);
+      Alert.alert('Error', 'Failed to test voice recognition');
+    }
   };
 
   const handleChangeLanguage = () => {
@@ -338,20 +378,104 @@ export default function MultilingualSettingsScreen() {
   };
 
   const handleTestVoiceRecognition = () => {
-    console.log('Test voice recognition');
+    Alert.alert(
+      'Voice Recognition Test',
+      'Speak into the microphone below to test voice recognition in your selected language.',
+      [{ text: 'OK' }]
+    );
   };
 
   const handleDownloadLanguagePack = () => {
-    console.log('Download language pack');
+    Alert.alert(
+      'Download Language Pack',
+      'Select a language to download:',
+      languages.filter(l => !l.isDownloaded).map(language => ({
+        text: `${language.nativeName} (${language.downloadSize})`,
+        onPress: () => downloadLanguagePack(language.code)
+      })).concat([{ text: 'Cancel', onPress: async () => {} }])
+    );
   };
 
-  const handleCulturalPreferences = () => {
-    console.log('Cultural preferences');
+  const downloadLanguagePack = async (languageCode: string) => {
+    setDownloading(languageCode);
+    setDownloadProgress(0);
+    
+    try {
+      const result = await MultilingualService.downloadLanguagePack(languageCode);
+      
+      if (result.success) {
+        Alert.alert('Success', 'Language pack downloaded successfully!');
+        await loadData(); // Reload data to update download status
+      } else {
+        Alert.alert('Download Failed', 'Failed to download language pack. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error downloading language pack:', error);
+      Alert.alert('Error', 'Failed to download language pack');
+    } finally {
+      setDownloading(null);
+      setDownloadProgress(0);
+    }
   };
 
-  const handleLanguageSelect = (language: Language) => {
-    setSelectedLanguage(language.name);
-    setShowLanguageModal(false);
+  const handleCulturalPreferences = async () => {
+    try {
+      const tips = await MultilingualService.getCulturalTips(languageSettings.primaryLanguage);
+      setCulturalTips(tips);
+      setShowCulturalModal(true);
+    } catch (error) {
+      console.error('Error loading cultural tips:', error);
+      Alert.alert('Error', 'Failed to load cultural tips');
+    }
+  };
+
+  const handleLanguageSelect = async (language: Language) => {
+    try {
+      await MultilingualService.updateLanguagePreference('primary', language.name);
+      setLanguageSettings(prev => ({ ...prev, primaryLanguage: language.name }));
+      setShowLanguageModal(false);
+      
+      Alert.alert('Success', `Primary language changed to ${language.nativeName}`);
+    } catch (error) {
+      console.error('Error updating language preference:', error);
+      Alert.alert('Error', 'Failed to update language preference');
+    }
+  };
+
+  const handleToggleSetting = async (settingKey: keyof LanguageSettings) => {
+    try {
+      const success = await MultilingualService.toggleSetting(settingKey);
+      if (success) {
+        setLanguageSettings(prev => ({ ...prev, [settingKey]: !prev[settingKey] }));
+      } else {
+        Alert.alert('Error', 'Failed to update setting');
+      }
+    } catch (error) {
+      console.error('Error toggling setting:', error);
+      Alert.alert('Error', 'Failed to update setting');
+    }
+  };
+
+  const handleShowHealthPhrases = async () => {
+    try {
+      const phrases = await MultilingualService.getHealthPhrases(languageSettings.primaryLanguage);
+      setHealthPhrases(phrases);
+      setShowPhrasesModal(true);
+    } catch (error) {
+      console.error('Error loading health phrases:', error);
+      Alert.alert('Error', 'Failed to load health phrases');
+    }
+  };
+
+  const handleShowPronunciationGuide = async () => {
+    try {
+      const guide = await MultilingualService.getPronunciationGuide(languageSettings.primaryLanguage);
+      setPronunciationGuide(guide);
+      setShowPronunciationModal(true);
+    } catch (error) {
+      console.error('Error loading pronunciation guide:', error);
+      Alert.alert('Error', 'Failed to load pronunciation guide');
+    }
   };
 
   const handleBackToDashboard = () => {
@@ -377,6 +501,8 @@ export default function MultilingualSettingsScreen() {
     { title: 'Test Voice Recognition', icon: <TestVoiceIcon size={24} />, onPress: handleTestVoiceRecognition, type: 'secondary' as const, delay: 1500 },
     { title: 'Download Language Pack', icon: <DownloadIcon size={24} />, onPress: handleDownloadLanguagePack, type: 'success' as const, delay: 1800 },
     { title: 'Cultural Preferences', icon: <CulturalIcon size={24} />, onPress: handleCulturalPreferences, type: 'secondary' as const, delay: 2100 },
+    { title: 'Health Phrases', icon: <CulturalIcon size={24} />, onPress: handleShowHealthPhrases, type: 'primary' as const, delay: 2400 },
+    { title: 'Pronunciation Guide', icon: <TestVoiceIcon size={24} />, onPress: handleShowPronunciationGuide, type: 'secondary' as const, delay: 2700 },
   ];
 
   return (
@@ -395,8 +521,15 @@ export default function MultilingualSettingsScreen() {
 
         {/* Current Language Header */}
         <Animated.View style={[styles.currentLanguageCard, animatedCurrentLanguageStyle]}>
-          <Text style={styles.currentLanguageTitle}>🌍 Currently: {selectedLanguage}</Text>
-          <Text style={styles.currentLanguageSubtitle}>Secondary: {secondaryLanguage}</Text>
+          <Text style={styles.currentLanguageTitle}>🌍 Currently: {languageSettings.primaryLanguage}</Text>
+          <Text style={styles.currentLanguageSubtitle}>Secondary: {languageSettings.secondaryLanguage}</Text>
+          {downloading && (
+            <View style={styles.downloadProgressContainer}>
+              <Text style={styles.downloadProgressText}>
+                Downloading {downloading}... {downloadProgress}%
+              </Text>
+            </View>
+          )}
         </Animated.View>
 
         {/* Supported Languages */}
@@ -407,7 +540,7 @@ export default function MultilingualSettingsScreen() {
               <LanguageOption
                 key={language.code}
                 language={language}
-                isSelected={language.name === selectedLanguage}
+                isSelected={language.name === languageSettings.primaryLanguage}
                 onSelect={() => handleLanguageSelect(language)}
                 delay={600 + (index * 100)}
               />
@@ -421,11 +554,11 @@ export default function MultilingualSettingsScreen() {
           <View style={styles.languageSelectionCard}>
             <View style={styles.languageSelectionItem}>
               <Text style={styles.languageSelectionLabel}>Primary Language:</Text>
-              <Text style={styles.languageSelectionValue}>{selectedLanguage}</Text>
+              <Text style={styles.languageSelectionValue}>{languageSettings.primaryLanguage}</Text>
             </View>
             <View style={styles.languageSelectionItem}>
               <Text style={styles.languageSelectionLabel}>Secondary Language:</Text>
-              <Text style={styles.languageSelectionValue}>{secondaryLanguage}</Text>
+              <Text style={styles.languageSelectionValue}>{languageSettings.secondaryLanguage}</Text>
             </View>
             <View style={styles.languageSelectionItem}>
               <Text style={styles.languageSelectionLabel}>Voice Recognition:</Text>
@@ -489,10 +622,16 @@ export default function MultilingualSettingsScreen() {
           <Text style={styles.sectionTitle}>Accessibility Features</Text>
           <View style={styles.accessibilityCard}>
             {[
-              { title: 'Large Text', description: 'Adjustable font sizes', value: largeTextEnabled, onValueChange: setLargeTextEnabled, delay: 1200 },
-              { title: 'High Contrast', description: 'Better visibility options', value: highContrastEnabled, onValueChange: setHighContrastEnabled, delay: 1400 },
-              { title: 'Voice Navigation', description: 'Navigate app using voice', value: voiceNavigationEnabled, onValueChange: setVoiceNavigationEnabled, delay: 1600 },
-              { title: 'Audio Descriptions', description: 'Screen reader support', value: audioDescriptionsEnabled, onValueChange: setAudioDescriptionsEnabled, delay: 1800 },
+              { title: 'Voice Recognition', description: 'Enable voice input', value: languageSettings.voiceRecognitionEnabled, onValueChange: () => handleToggleSetting('voiceRecognitionEnabled'), delay: 1200 },
+              { title: 'Text Display', description: 'Show text in selected language', value: languageSettings.textDisplayEnabled, onValueChange: () => handleToggleSetting('textDisplayEnabled'), delay: 1400 },
+              { title: 'Accent Recognition', description: 'Recognize regional accents', value: languageSettings.accentRecognitionEnabled, onValueChange: () => handleToggleSetting('accentRecognitionEnabled'), delay: 1600 },
+              { title: 'Mixed Language', description: 'Allow mixed language conversations', value: languageSettings.mixedLanguageEnabled, onValueChange: () => handleToggleSetting('mixedLanguageEnabled'), delay: 1800 },
+              { title: 'Large Text', description: 'Adjustable font sizes', value: languageSettings.largeTextEnabled, onValueChange: () => handleToggleSetting('largeTextEnabled'), delay: 2000 },
+              { title: 'High Contrast', description: 'Better visibility options', value: languageSettings.highContrastEnabled, onValueChange: () => handleToggleSetting('highContrastEnabled'), delay: 2200 },
+              { title: 'Voice Navigation', description: 'Navigate app using voice', value: languageSettings.voiceNavigationEnabled, onValueChange: () => handleToggleSetting('voiceNavigationEnabled'), delay: 2400 },
+              { title: 'Audio Descriptions', description: 'Screen reader support', value: languageSettings.audioDescriptionsEnabled, onValueChange: () => handleToggleSetting('audioDescriptionsEnabled'), delay: 2600 },
+              { title: 'Auto Translate', description: 'Automatically translate content', value: languageSettings.autoTranslateEnabled, onValueChange: () => handleToggleSetting('autoTranslateEnabled'), delay: 2800 },
+              { title: 'Cultural Adaptation', description: 'Adapt content for local culture', value: languageSettings.culturalAdaptationEnabled, onValueChange: () => handleToggleSetting('culturalAdaptationEnabled'), delay: 3000 },
             ].map((setting, index) => (
               <SettingItem
                 key={index}
@@ -510,12 +649,26 @@ export default function MultilingualSettingsScreen() {
         <Animated.View style={[styles.section, animatedSectionStyle]}>
           <Text style={styles.sectionTitle}>Regional Settings</Text>
           <View style={styles.regionalSettingsCard}>
-            {regionalSettings.map((setting, index) => (
-              <View key={index} style={styles.regionalSettingItem}>
-                <Text style={styles.regionalSettingName}>{setting.name}:</Text>
-                <Text style={styles.regionalSettingValue}>{setting.value}</Text>
-              </View>
-            ))}
+            <View style={styles.regionalSettingItem}>
+              <Text style={styles.regionalSettingName}>Time Zone:</Text>
+              <Text style={styles.regionalSettingValue}>{regionalSettings.timeZone}</Text>
+            </View>
+            <View style={styles.regionalSettingItem}>
+              <Text style={styles.regionalSettingName}>Date Format:</Text>
+              <Text style={styles.regionalSettingValue}>{regionalSettings.dateFormat}</Text>
+            </View>
+            <View style={styles.regionalSettingItem}>
+              <Text style={styles.regionalSettingName}>Currency:</Text>
+              <Text style={styles.regionalSettingValue}>{regionalSettings.currency}</Text>
+            </View>
+            <View style={styles.regionalSettingItem}>
+              <Text style={styles.regionalSettingName}>Measurement:</Text>
+              <Text style={styles.regionalSettingValue}>{regionalSettings.measurement}</Text>
+            </View>
+            <View style={styles.regionalSettingItem}>
+              <Text style={styles.regionalSettingName}>Temperature Unit:</Text>
+              <Text style={styles.regionalSettingValue}>{regionalSettings.temperatureUnit}</Text>
+            </View>
           </View>
         </Animated.View>
 
@@ -523,12 +676,18 @@ export default function MultilingualSettingsScreen() {
         <Animated.View style={[styles.section, animatedSectionStyle]}>
           <Text style={styles.sectionTitle}>Language Learning</Text>
           <View style={styles.languageLearningCard}>
-            {languageLearningFeatures.map((feature, index) => (
-              <View key={index} style={styles.languageLearningItem}>
-                <Text style={styles.languageLearningTitle}>{feature.name}:</Text>
-                <Text style={styles.languageLearningText}>{feature.description}</Text>
-              </View>
-            ))}
+            <TouchableOpacity style={styles.languageLearningItem} onPress={handleShowHealthPhrases}>
+              <Text style={styles.languageLearningTitle}>Basic Health Phrases:</Text>
+              <Text style={styles.languageLearningText}>Learn health-related phrases in your language</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.languageLearningItem} onPress={handleShowPronunciationGuide}>
+              <Text style={styles.languageLearningTitle}>Pronunciation Guide:</Text>
+              <Text style={styles.languageLearningText}>Voice pronunciation help for health terms</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.languageLearningItem} onPress={handleCulturalPreferences}>
+              <Text style={styles.languageLearningTitle}>Cultural Tips:</Text>
+              <Text style={styles.languageLearningText}>Understanding local customs and health practices</Text>
+            </TouchableOpacity>
           </View>
         </Animated.View>
 
@@ -585,23 +744,26 @@ export default function MultilingualSettingsScreen() {
                 key={language.code}
                 style={[
                   styles.modalLanguageOption,
-                  selectedLanguage === language.name && styles.modalLanguageOptionSelected
+                  languageSettings.primaryLanguage === language.name && styles.modalLanguageOptionSelected
                 ]}
                 onPress={() => handleLanguageSelect(language)}
               >
                 <View style={styles.modalLanguageInfo}>
                   <Text style={[
                     styles.modalLanguageName,
-                    selectedLanguage === language.name && styles.modalLanguageNameSelected
+                    languageSettings.primaryLanguage === language.name && styles.modalLanguageNameSelected
                   ]}>
                     {language.nativeName}
                   </Text>
                   <Text style={[
                     styles.modalLanguageEnglish,
-                    selectedLanguage === language.name && styles.modalLanguageEnglishSelected
+                    languageSettings.primaryLanguage === language.name && styles.modalLanguageEnglishSelected
                   ]}>
                     {language.name}
                   </Text>
+                  {language.isDownloaded && (
+                    <Text style={styles.downloadedText}>✓ Downloaded</Text>
+                  )}
                 </View>
                 <View style={styles.modalLanguageFeatures}>
                   {language.voiceSupported && (
@@ -614,10 +776,99 @@ export default function MultilingualSettingsScreen() {
                     <Text style={styles.modalFeatureText}>🗣️</Text>
                   )}
                 </View>
-                {selectedLanguage === language.name && (
+                {languageSettings.primaryLanguage === language.name && (
                   <Text style={styles.modalSelectedText}>✓</Text>
                 )}
               </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Cultural Tips Modal */}
+      <Modal
+        visible={showCulturalModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowCulturalModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowCulturalModal(false)}>
+              <Text style={styles.modalCloseButton}>Close</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Cultural Tips</Text>
+            <View style={styles.placeholder} />
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            <Text style={styles.modalSubtitle}>Cultural tips for {languageSettings.primaryLanguage}</Text>
+            {culturalTips.map((tip, index) => (
+              <View key={index} style={styles.culturalTipItem}>
+                <Text style={styles.culturalTipText}>• {tip}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Health Phrases Modal */}
+      <Modal
+        visible={showPhrasesModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowPhrasesModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowPhrasesModal(false)}>
+              <Text style={styles.modalCloseButton}>Close</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Health Phrases</Text>
+            <View style={styles.placeholder} />
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            <Text style={styles.modalSubtitle}>Health phrases in {languageSettings.primaryLanguage}</Text>
+            {healthPhrases.map((phrase, index) => (
+              <View key={index} style={styles.phraseItem}>
+                <Text style={styles.phraseEnglish}>{phrase.english}</Text>
+                <Text style={styles.phraseNative}>{phrase.native}</Text>
+                <Text style={styles.phrasePronunciation}>Pronunciation: {phrase.pronunciation}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Pronunciation Guide Modal */}
+      <Modal
+        visible={showPronunciationModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowPronunciationModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowPronunciationModal(false)}>
+              <Text style={styles.modalCloseButton}>Close</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Pronunciation Guide</Text>
+            <View style={styles.placeholder} />
+          </View>
+          
+          <ScrollView style={styles.modalContent}>
+            <Text style={styles.modalSubtitle}>Pronunciation guide for {languageSettings.primaryLanguage}</Text>
+            {pronunciationGuide.map((guide, index) => (
+              <View key={index} style={styles.pronunciationItem}>
+                <Text style={styles.pronunciationWord}>{guide.word}</Text>
+                <Text style={styles.pronunciationText}>Pronunciation: {guide.pronunciation}</Text>
+                {guide.audioUrl && (
+                  <TouchableOpacity style={styles.audioButton}>
+                    <Text style={styles.audioButtonText}>🔊 Play Audio</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             ))}
           </ScrollView>
         </View>
@@ -1078,6 +1329,96 @@ const styles = StyleSheet.create({
   modalSelectedText: {
     fontSize: Typography.sizes.lg,
     fontFamily: Typography.bodySemiBold,
+    color: Colors.background,
+  },
+  downloadedText: {
+    fontSize: Typography.sizes.xs,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.secondary,
+    marginTop: 2,
+  },
+  downloadProgressContainer: {
+    marginTop: 12,
+    padding: 8,
+    backgroundColor: Colors.background + '20',
+    borderRadius: 8,
+  },
+  downloadProgressText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.background,
+    textAlign: 'center',
+  },
+  culturalTipItem: {
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: Colors.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+  },
+  culturalTipText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textPrimary,
+    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.base,
+  },
+  phraseItem: {
+    marginBottom: 16,
+    padding: 16,
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.secondary,
+  },
+  phraseEnglish: {
+    fontSize: Typography.sizes.lg,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.textPrimary,
+    marginBottom: 8,
+  },
+  phraseNative: {
+    fontSize: Typography.sizes.xl,
+    fontFamily: Typography.heading,
+    color: Colors.primary,
+    marginBottom: 8,
+  },
+  phrasePronunciation: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    fontStyle: 'italic',
+  },
+  pronunciationItem: {
+    marginBottom: 16,
+    padding: 16,
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.warning,
+  },
+  pronunciationWord: {
+    fontSize: Typography.sizes.xl,
+    fontFamily: Typography.heading,
+    color: Colors.textPrimary,
+    marginBottom: 8,
+  },
+  pronunciationText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    marginBottom: 12,
+  },
+  audioButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  audioButtonText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.bodyMedium,
     color: Colors.background,
   },
 });
