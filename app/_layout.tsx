@@ -18,7 +18,6 @@ export default function RootLayout() {
         <Stack.Screen name="timeline-preview" />
         <Stack.Screen name="dashboard" />
         <Stack.Screen name="sms-demo" />
-        <Stack.Screen name="sms-registration" />
         <Stack.Screen name="smart-alert" />
         <Stack.Screen name="recovery-timeline" />
         <Stack.Screen name="asha-worker" />

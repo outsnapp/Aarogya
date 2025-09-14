@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -15,6 +15,8 @@ import { Svg, Path, Circle, G } from 'react-native-svg';
 
 import { Colors, Typography } from '../constants/Colors';
 import VoiceRecorder from '../components/VoiceRecorder';
+import { RecoveryTimelineService, RecoveryTimelineData } from '../lib/recoveryTimelineService';
+import { useAuth } from '../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -202,7 +204,10 @@ const TipCard = ({ tip, delay }: { tip: Tip; delay: number }) => {
 
 export default function RecoveryTimelineScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [isListening, setIsListening] = useState(false);
+  const [timelineData, setTimelineData] = useState<RecoveryTimelineData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   // Animation values
   const headerOpacity = useSharedValue(0);
@@ -210,46 +215,52 @@ export default function RecoveryTimelineScreen() {
   const progressValue = useSharedValue(0);
   const voicePulse = useSharedValue(1);
 
-  // Data
-  const milestones: Milestone[] = [
-    { day: 15, title: 'Energy should improve significantly', description: 'You\'ll start feeling more energetic and ready for light activities.', isAchieved: false, isUpcoming: true },
-    { day: 21, title: 'You can start light household work', description: 'Gradually resume light household tasks with proper rest.', isAchieved: false, isUpcoming: false },
-    { day: 30, title: 'Full recovery expected', description: 'Complete recovery milestone with full energy restoration.', isAchieved: false, isUpcoming: false },
-  ];
-
-  const predictions: Prediction[] = [
-    { title: 'Faster Healing', description: 'Based on your C-section recovery, you\'re healing 15% faster than average', type: 'positive' },
-    { title: 'Mood Improvement', description: 'Your mood patterns suggest you\'ll feel much better in 3 days', type: 'insight' },
-    { title: 'Baby\'s Impact', description: 'Your baby\'s feeding schedule is helping your recovery', type: 'neutral' },
-  ];
-
-  const tips: Tip[] = [
-    { title: 'Sleep Quality', description: 'Your sleep quality affects your healing. Try to nap when baby sleeps.', category: 'sleep' },
-    { title: 'Family Support', description: 'Your family support is excellent - this is helping your recovery.', category: 'family' },
-    { title: 'Hydration', description: 'You\'re drinking enough water - keep it up!', category: 'health' },
-  ];
+  useEffect(() => {
+    loadTimelineData();
+  }, [user]);
 
   useEffect(() => {
-    // Header animation
-    headerOpacity.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.quad) });
-    headerTranslateY.value = withTiming(0, { duration: 500, easing: Easing.out(Easing.quad) });
+    if (timelineData) {
+      // Header animation
+      headerOpacity.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.quad) });
+      headerTranslateY.value = withTiming(0, { duration: 500, easing: Easing.out(Easing.quad) });
 
-    // Progress bar animation (Day 12 of 14 = 85.7%)
-    progressValue.value = withDelay(
-      800,
-      withTiming(0.857, { duration: 1000, easing: Easing.out(Easing.quad) })
-    );
+      // Progress bar animation based on real data
+      const progressDecimal = timelineData.progressPercentage / 100;
+      progressValue.value = withDelay(
+        800,
+        withTiming(progressDecimal, { duration: 1000, easing: Easing.out(Easing.quad) })
+      );
 
-    // Voice button pulse animation
-    voicePulse.value = withRepeat(
-      withSequence(
-        withTiming(1.05, { duration: 1000, easing: Easing.inOut(Easing.quad) }),
-        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.quad) })
-      ),
-      -1,
-      false
-    );
-  }, []);
+      // Voice button pulse animation
+      voicePulse.value = withRepeat(
+        withSequence(
+          withTiming(1.05, { duration: 1000, easing: Easing.inOut(Easing.quad) }),
+          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.quad) })
+        ),
+        -1,
+        false
+      );
+    }
+  }, [timelineData]);
+
+  const loadTimelineData = async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const data = await RecoveryTimelineService.getRecoveryTimelineData(user.id);
+      setTimelineData(data);
+    } catch (error) {
+      console.error('Error loading timeline data:', error);
+      Alert.alert('Error', 'Failed to load recovery timeline data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleVoiceStart = () => {
     setIsListening(true);
@@ -259,9 +270,25 @@ export default function RecoveryTimelineScreen() {
     setIsListening(false);
   };
 
-  const handleVoiceTranscript = (text: string) => {
-    // Handle voice input for recovery questions
-    console.log('Recovery question:', text);
+  const handleVoiceTranscript = async (text: string) => {
+    if (!user?.id) return;
+    
+    try {
+      const result = await RecoveryTimelineService.processVoiceTranscript(user.id, text);
+      
+      // Show analysis and recommendations
+      Alert.alert(
+        'Recovery Analysis',
+        `${result.analysis}\n\nRecommendations:\n${result.recommendations.map(rec => `• ${rec}`).join('\n')}`,
+        [{ text: 'OK' }]
+      );
+      
+      // Reload timeline data to reflect any updates
+      await loadTimelineData();
+    } catch (error) {
+      console.error('Error processing voice transcript:', error);
+      Alert.alert('Error', 'Failed to process your voice input. Please try again.');
+    }
   };
 
   const handleBackToDashboard = () => {
@@ -281,6 +308,31 @@ export default function RecoveryTimelineScreen() {
     transform: [{ scale: voicePulse.value }],
   }));
 
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="dark" backgroundColor={Colors.background} />
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading your recovery timeline...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!timelineData) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="dark" backgroundColor={Colors.background} />
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Unable to load recovery timeline data.</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadTimelineData}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" backgroundColor={Colors.background} />
@@ -298,27 +350,29 @@ export default function RecoveryTimelineScreen() {
         {/* Current Phase */}
         <Animated.View style={[styles.currentPhaseCard, animatedHeaderStyle]}>
           <Text style={styles.phaseTitle}>Current Phase</Text>
-          <Text style={styles.phaseSubtitle}>Healing Phase - Day 12 of 14</Text>
+          <Text style={styles.phaseSubtitle}>
+            {timelineData.currentPhase} - Day {timelineData.daysSinceDelivery}
+          </Text>
           <View style={styles.progressContainer}>
             <View style={styles.progressBackground}>
               <Animated.View style={[styles.progressFill, animatedProgressStyle]} />
             </View>
-            <Text style={styles.progressText}>85.7% Complete</Text>
+            <Text style={styles.progressText}>{timelineData.progressPercentage}% Complete</Text>
           </View>
         </Animated.View>
 
         {/* Today's Focus */}
         <Animated.View style={[styles.focusCard, animatedHeaderStyle]}>
-          <Text style={styles.focusTitle}>Today's Focus</Text>
+          <Text style={styles.focusTitle}>{timelineData.todayFocus.title}</Text>
           <Text style={styles.focusText}>
-            Rest and gentle movement. Your bleeding should be lighter today.
+            {timelineData.todayFocus.message}
           </Text>
         </Animated.View>
 
         {/* Upcoming Milestones */}
         <View style={styles.milestonesSection}>
-          <Text style={styles.sectionTitle}>Upcoming Milestones</Text>
-          {milestones.map((milestone, index) => (
+          <Text style={styles.sectionTitle}>Recovery Milestones</Text>
+          {timelineData.milestones.map((milestone, index) => (
             <MilestoneItem
               key={index}
               milestone={milestone}
@@ -330,7 +384,7 @@ export default function RecoveryTimelineScreen() {
         {/* AI Predictions */}
         <View style={styles.predictionsSection}>
           <Text style={styles.sectionTitle}>AI Predictions</Text>
-          {predictions.map((prediction, index) => (
+          {timelineData.predictions.map((prediction, index) => (
             <PredictionCard
               key={index}
               prediction={prediction}
@@ -342,7 +396,7 @@ export default function RecoveryTimelineScreen() {
         {/* Personalized Tips */}
         <View style={styles.tipsSection}>
           <Text style={styles.sectionTitle}>Personalized Tips</Text>
-          {tips.map((tip, index) => (
+          {timelineData.tips.map((tip, index) => (
             <TipCard
               key={index}
               tip={tip}
@@ -608,5 +662,41 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     marginBottom: 20,
     textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  loadingText: {
+    fontSize: Typography.sizes.lg,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.textMuted,
+    textAlign: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  errorText: {
+    fontSize: Typography.sizes.lg,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.background,
   },
 });

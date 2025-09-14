@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Check if onboarding is completed based on profile data
       if (data) {
-        const isCompleted = checkIfOnboardingCompleted(data);
+        const isCompleted = await checkIfOnboardingCompleted(data);
         setOnboardingCompleted(isCompleted);
       } else {
         setOnboardingCompleted(false);
@@ -84,15 +84,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const checkIfOnboardingCompleted = (profile: UserProfile): boolean => {
+  const checkIfOnboardingCompleted = async (profile: UserProfile): Promise<boolean> => {
+    console.log('🔍 Checking onboarding completion for user:', profile.id);
+    
     // Check if essential onboarding fields are filled
-    return !!(
+    const hasBasicProfile = !!(
       profile.full_name &&
       profile.phone &&
       profile.date_of_birth &&
       profile.height_cm &&
       profile.weight_kg
     );
+
+    console.log('📋 Basic profile check:', {
+      hasBasicProfile,
+      full_name: !!profile.full_name,
+      phone: !!profile.phone,
+      date_of_birth: !!profile.date_of_birth,
+      height_cm: !!profile.height_cm,
+      weight_kg: !!profile.weight_kg
+    });
+
+    if (!hasBasicProfile) {
+      console.log('❌ Basic profile incomplete');
+      return false;
+    }
+
+    // Also check if user has a baby profile (essential for the app)
+    try {
+      const { data: babyProfiles, error } = await supabase
+        .from('baby_profiles')
+        .select('id')
+        .eq('user_id', profile.id)
+        .limit(1);
+
+      if (error) {
+        console.error('Error checking baby profile:', error);
+        return false;
+      }
+
+      const hasBabyProfile = babyProfiles && babyProfiles.length > 0;
+      console.log('👶 Baby profile check:', { hasBabyProfile, count: babyProfiles?.length || 0 });
+      
+      return hasBabyProfile;
+    } catch (error) {
+      console.error('Error checking baby profile:', error);
+      return false;
+    }
   };
 
   const checkOnboardingStatus = async (): Promise<boolean> => {
@@ -109,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return false;
       }
 
-      const isCompleted = checkIfOnboardingCompleted(data);
+      const isCompleted = await checkIfOnboardingCompleted(data);
       setOnboardingCompleted(isCompleted);
       return isCompleted;
     } catch (error) {

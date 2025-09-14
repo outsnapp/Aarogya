@@ -374,15 +374,14 @@ export default function DashboardScreen() {
 
   const quickActions = [
     { title: 'SMS Demo', icon: <SMSIcon size={28} />, onPress: () => router.push('/sms-demo'), delay: 2100 },
-    { title: 'Register SMS', icon: <SMSIcon size={28} />, onPress: () => router.push('/sms-registration'), delay: 2400 },
-    { title: 'View Timeline', icon: <TimelineIcon size={28} />, onPress: handleViewTimeline, delay: 2700 },
-    { title: 'Contact ASHA Worker', icon: <ASHAIcon size={28} />, onPress: handleContactASHA, delay: 3000 },
-    { title: 'Child Care', icon: <BabyIcon size={28} />, onPress: handleChildCare, delay: 3300 },
-    { title: 'Anonymous Q&A', icon: <AnonymousIcon size={28} />, onPress: handleAnonymousQuestions, delay: 3600 },
-    { title: 'Mother Health', icon: <HealthIcon size={28} />, onPress: handleMotherHealth, delay: 3900 },
-    { title: 'Language Settings', icon: <LanguageIcon size={28} />, onPress: handleMultilingualSettings, delay: 4200 },
-    { title: 'Family Network', icon: <FamilyIcon size={28} />, onPress: handleFamilyNetwork, delay: 4500 },
-    { title: 'Emergency', icon: <EmergencyIcon size={28} />, onPress: handleEmergency, delay: 4800 },
+    { title: 'View Timeline', icon: <TimelineIcon size={28} />, onPress: handleViewTimeline, delay: 2400 },
+    { title: 'Contact ASHA Worker', icon: <ASHAIcon size={28} />, onPress: handleContactASHA, delay: 2700 },
+    { title: 'Child Care', icon: <BabyIcon size={28} />, onPress: handleChildCare, delay: 3000 },
+    { title: 'Anonymous Q&A', icon: <AnonymousIcon size={28} />, onPress: handleAnonymousQuestions, delay: 3300 },
+    { title: 'Mother Health', icon: <HealthIcon size={28} />, onPress: handleMotherHealth, delay: 3600 },
+    { title: 'Language Settings', icon: <LanguageIcon size={28} />, onPress: handleMultilingualSettings, delay: 3900 },
+    { title: 'Family Network', icon: <FamilyIcon size={28} />, onPress: handleFamilyNetwork, delay: 4200 },
+    { title: 'Emergency', icon: <EmergencyIcon size={28} />, onPress: handleEmergency, delay: 4500 },
   ];
 
   return (

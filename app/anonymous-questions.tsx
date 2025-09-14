@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, TextInput, Modal, Alert, RefreshControl } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -15,6 +15,7 @@ import { Svg, Path, Circle, G } from 'react-native-svg';
 
 import { Colors, Typography } from '../constants/Colors';
 import VoiceRecorder from '../components/VoiceRecorder';
+import { AnonymousQuestionsService, AnonymousQuestion, QuestionSubmission, AIResponse } from '../lib/anonymousQuestionsService';
 
 const { width } = Dimensions.get('window');
 
@@ -22,10 +23,12 @@ interface Question {
   id: string;
   text: string;
   category: string;
-  urgency: 'low' | 'medium' | 'high';
+  urgency: 'low' | 'normal' | 'high' | 'urgent';
   aiResponse: string;
   timestamp: Date;
   isAnonymous: boolean;
+  suggestions?: string[];
+  followUpQuestions?: string[];
 }
 
 interface QuickActionProps {
@@ -189,7 +192,15 @@ export default function AnonymousQuestionsScreen() {
   const [showQuestionModal, setShowQuestionModal] = useState(false);
   const [newQuestion, setNewQuestion] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Postpartum Concerns');
-  const [selectedUrgency, setSelectedUrgency] = useState<'low' | 'medium' | 'high'>('low');
+  const [selectedUrgency, setSelectedUrgency] = useState<'low' | 'normal' | 'high' | 'urgent'>('low');
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [questions, setQuestions] = useState<AnonymousQuestion[]>([]);
+  const [filteredQuestions, setFilteredQuestions] = useState<AnonymousQuestion[]>([]);
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'category' | 'urgency'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchModal, setShowSearchModal] = useState(false);
 
   // Animation values
   const headerOpacity = useSharedValue(0);
@@ -198,50 +209,62 @@ export default function AnonymousQuestionsScreen() {
   const sectionTranslateY = useSharedValue(30);
   const privacyPulse = useSharedValue(1);
 
-  // Data
-  const categories = [
-    'Postpartum Concerns',
-    'Baby Care',
-    'Mental Health',
-    'Family Issues',
-    'Medical Questions'
-  ];
+  // Load data on component mount
+  useEffect(() => {
+    loadQuestions();
+  }, []);
 
-  const urgencyLevels = [
-    { value: 'low', label: 'Low', color: Colors.primary },
-    { value: 'medium', label: 'Medium', color: Colors.warning },
-    { value: 'high', label: 'High', color: Colors.danger }
-  ];
+  // Filter questions when search query or filter changes
+  useEffect(() => {
+    filterQuestions();
+  }, [questions, searchQuery, selectedFilter, selectedCategory, selectedUrgency]);
 
-  const sampleQuestions: Question[] = [
-    {
-      id: '1',
-      text: 'Is it normal to feel very tired 2 weeks after delivery?',
-      category: 'Postpartum Concerns',
-      urgency: 'low',
-      aiResponse: 'Yes, feeling tired is completely normal. Your body is healing and adjusting to new routines. Make sure to rest when baby sleeps and ask for help from family.',
-      timestamp: new Date('2024-01-15'),
-      isAnonymous: true
-    },
-    {
-      id: '2',
-      text: 'My baby cries a lot during feeding. What should I do?',
-      category: 'Baby Care',
-      urgency: 'medium',
-      aiResponse: 'Try different feeding positions, check if baby is too hungry or overfed, and ensure proper burping. If crying persists, consult your pediatrician.',
-      timestamp: new Date('2024-01-14'),
-      isAnonymous: true
-    },
-    {
-      id: '3',
-      text: 'I feel overwhelmed and anxious. Is this normal?',
-      category: 'Mental Health',
-      urgency: 'high',
-      aiResponse: 'Postpartum anxiety is common. Please reach out to your healthcare provider or a mental health professional. You\'re not alone, and help is available.',
-      timestamp: new Date('2024-01-13'),
-      isAnonymous: true
+  const loadQuestions = async () => {
+    setLoading(true);
+    try {
+      const recentQuestions = await AnonymousQuestionsService.getRecentQuestions(20);
+      setQuestions(recentQuestions);
+    } catch (error) {
+      console.error('Error loading questions:', error);
+      Alert.alert('Error', 'Failed to load questions. Please try again.');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadQuestions();
+    setRefreshing(false);
+  };
+
+  const filterQuestions = () => {
+    let filtered = [...questions];
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      filtered = filtered.filter(q => 
+        q.question_text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        q.category.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    // Apply category filter
+    if (selectedFilter === 'category') {
+      filtered = filtered.filter(q => q.category === selectedCategory);
+    }
+
+    // Apply urgency filter
+    if (selectedFilter === 'urgency') {
+      filtered = filtered.filter(q => q.urgency_level === selectedUrgency);
+    }
+
+    setFilteredQuestions(filtered);
+  };
+
+  // Data
+  const categories = AnonymousQuestionsService.getCategories();
+  const urgencyLevels = AnonymousQuestionsService.getUrgencyLevels();
 
   useEffect(() => {
     // Header animation
@@ -277,9 +300,42 @@ export default function AnonymousQuestionsScreen() {
     setIsListening(false);
   };
 
-  const handleVoiceTranscript = (text: string) => {
+  const handleVoiceTranscript = async (text: string) => {
+    if (!text.trim()) return;
+    
     setNewQuestion(text);
     setShowQuestionModal(true);
+  };
+
+  const handleSubmitVoiceQuestion = async (text: string) => {
+    if (!text.trim()) return;
+
+    setSubmitting(true);
+    try {
+      const questionData: QuestionSubmission = {
+        questionText: text.trim(),
+        category: selectedCategory,
+        urgency: selectedUrgency,
+        isVoiceQuestion: true
+      };
+
+      const result = await AnonymousQuestionsService.submitAnonymousQuestion(questionData);
+      
+      if (result.success) {
+        Alert.alert(
+          'Voice Question Submitted!',
+          'Your anonymous voice question has been submitted successfully. You can view the AI response in the recent questions section.',
+          [{ text: 'OK', onPress: () => loadQuestions() }]
+        );
+      } else {
+        Alert.alert('Error', 'Failed to submit your voice question. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error submitting voice question:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleAskNewQuestion = () => {
@@ -287,26 +343,100 @@ export default function AnonymousQuestionsScreen() {
   };
 
   const handleViewMyQuestions = () => {
-    console.log('View my questions');
+    // Since questions are anonymous, we show all recent questions
+    setSelectedFilter('all');
+    setSearchQuery('');
   };
 
   const handleGetHelpNow = () => {
-    console.log('Get help now');
+    Alert.alert(
+      'Get Help Now',
+      'For immediate assistance, please contact:\n\n• Emergency: 108\n• Women\'s Helpline: 181\n• Mental Health: 1800-599-0019\n\nOr visit your nearest healthcare center.',
+      [{ text: 'OK' }]
+    );
   };
 
   const handleCommunityTips = () => {
-    console.log('Community tips');
+    setShowSearchModal(true);
   };
 
-  const handleSubmitQuestion = () => {
-    if (newQuestion.trim()) {
-      console.log('Question submitted:', {
-        text: newQuestion,
+  const handleSearchQuestions = async () => {
+    if (!searchQuery.trim()) {
+      Alert.alert('Error', 'Please enter a search term.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const searchResults = await AnonymousQuestionsService.searchQuestions(searchQuery.trim(), 20);
+      setQuestions(searchResults);
+      setShowSearchModal(false);
+    } catch (error) {
+      console.error('Error searching questions:', error);
+      Alert.alert('Error', 'Failed to search questions. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFilterByCategory = (category: string) => {
+    setSelectedCategory(category);
+    setSelectedFilter('category');
+  };
+
+  const handleFilterByUrgency = (urgency: string) => {
+    setSelectedUrgency(urgency as any);
+    setSelectedFilter('urgency');
+  };
+
+  const handleClearFilters = () => {
+    setSelectedFilter('all');
+    setSearchQuery('');
+    loadQuestions();
+  };
+
+  const handleSubmitQuestion = async () => {
+    if (!newQuestion.trim()) {
+      Alert.alert('Error', 'Please enter your question before submitting.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const questionData: QuestionSubmission = {
+        questionText: newQuestion.trim(),
         category: selectedCategory,
-        urgency: selectedUrgency
-      });
-      setNewQuestion('');
-      setShowQuestionModal(false);
+        urgency: selectedUrgency,
+        isVoiceQuestion: false
+      };
+
+      const result = await AnonymousQuestionsService.submitAnonymousQuestion(questionData);
+      
+      if (result.success) {
+        Alert.alert(
+          'Question Submitted!',
+          'Your anonymous question has been submitted successfully. You can view the AI response in the recent questions section.',
+          [{ text: 'OK', onPress: () => {
+            setNewQuestion('');
+            setShowQuestionModal(false);
+            loadQuestions(); // Refresh the questions list
+          }}]
+        );
+      } else {
+        // Provide more specific error messages
+        let errorMessage = 'Failed to submit your question. Please try again.';
+        if (result.error?.code === '42501') {
+          errorMessage = 'Database security policy blocked the submission. Your question was saved locally and will be processed.';
+        } else if (result.error?.message) {
+          errorMessage = `Error: ${result.error.message}`;
+        }
+        Alert.alert('Submission Issue', errorMessage);
+      }
+    } catch (error) {
+      console.error('Error submitting question:', error);
+      Alert.alert('Error', 'Something went wrong. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -330,16 +460,41 @@ export default function AnonymousQuestionsScreen() {
 
   const quickActions = [
     { title: 'Ask New Question', icon: <AskIcon size={24} />, onPress: handleAskNewQuestion, type: 'primary' as const, delay: 1200 },
-    { title: 'View My Questions', icon: <HistoryIcon size={24} />, onPress: handleViewMyQuestions, type: 'secondary' as const, delay: 1500 },
+    { title: 'Recent Questions', icon: <HistoryIcon size={24} />, onPress: handleViewMyQuestions, type: 'secondary' as const, delay: 1500 },
     { title: 'Get Help Now', icon: <HelpIcon size={24} />, onPress: handleGetHelpNow, type: 'danger' as const, delay: 1800 },
-    { title: 'Community Tips', icon: <TipsIcon size={24} />, onPress: handleCommunityTips, type: 'secondary' as const, delay: 2100 },
+    { title: 'Search Questions', icon: <TipsIcon size={24} />, onPress: handleCommunityTips, type: 'secondary' as const, delay: 2100 },
   ];
+
+  // Convert database questions to display format
+  const convertToDisplayQuestions = (dbQuestions: AnonymousQuestion[]): Question[] => {
+    return dbQuestions.map(q => ({
+      id: q.id,
+      text: q.question_text,
+      category: q.category,
+      urgency: q.urgency_level as any,
+      aiResponse: q.ai_response || 'Response pending...',
+      timestamp: new Date(q.created_at),
+      isAnonymous: q.is_anonymous,
+      suggestions: [],
+      followUpQuestions: []
+    }));
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" backgroundColor={Colors.background} />
       
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[Colors.primary]}
+            tintColor={Colors.primary}
+          />
+        }
+      >
         {/* Header */}
         <Animated.View style={[styles.header, animatedHeaderStyle]}>
           <TouchableOpacity style={styles.backButton} onPress={handleBackToDashboard}>
@@ -351,19 +506,33 @@ export default function AnonymousQuestionsScreen() {
 
         {/* Privacy Indicator */}
         <Animated.View style={[styles.privacyCard, animatedPrivacyStyle]}>
-          <Text style={styles.privacyTitle}>🔒 Your identity is protected</Text>
-          <Text style={styles.privacyText}>Ask sensitive questions without fear of judgment</Text>
+          <Text style={styles.privacyTitle}>🔒 Complete Anonymity Guaranteed</Text>
+          <Text style={styles.privacyText}>No user information is stored. Your identity remains completely anonymous.</Text>
         </Animated.View>
 
         {/* Question Categories */}
         <Animated.View style={[styles.section, animatedSectionStyle]}>
           <Text style={styles.sectionTitle}>Question Categories</Text>
           <View style={styles.categoriesCard}>
-            {categories.map((category, index) => (
-              <View key={index} style={styles.categoryItem}>
-                <Text style={styles.categoryText}>• {category}</Text>
-              </View>
-            ))}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
+              {categories.map((category, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.categoryChip,
+                    selectedCategory === category && styles.categoryChipSelected
+                  ]}
+                  onPress={() => handleFilterByCategory(category)}
+                >
+                  <Text style={[
+                    styles.categoryChipText,
+                    selectedCategory === category && styles.categoryChipTextSelected
+                  ]}>
+                    {category}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
         </Animated.View>
 
@@ -430,14 +599,41 @@ export default function AnonymousQuestionsScreen() {
 
         {/* Recent Questions */}
         <Animated.View style={[styles.section, animatedSectionStyle]}>
-          <Text style={styles.sectionTitle}>Recent Questions</Text>
-          {sampleQuestions.map((question, index) => (
-            <QuestionCard
-              key={question.id}
-              question={question}
-              delay={900 + (index * 200)}
-            />
-          ))}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>
+              {selectedFilter === 'all' ? 'Recent Questions' : 
+               selectedFilter === 'category' ? `${selectedCategory} Questions` :
+               `${selectedUrgency.toUpperCase()} Priority Questions`}
+            </Text>
+            {selectedFilter !== 'all' && (
+              <TouchableOpacity onPress={handleClearFilters} style={styles.clearFilterButton}>
+                <Text style={styles.clearFilterText}>Clear Filters</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Loading questions...</Text>
+            </View>
+          ) : filteredQuestions.length > 0 ? (
+            convertToDisplayQuestions(filteredQuestions).map((question, index) => (
+              <QuestionCard
+                key={question.id}
+                question={question}
+                delay={900 + (index * 200)}
+              />
+            ))
+          ) : (
+            <View style={styles.noQuestionsContainer}>
+              <Text style={styles.noQuestionsText}>
+                {searchQuery ? 'No questions found matching your search.' : 'No questions available yet.'}
+              </Text>
+              <TouchableOpacity style={styles.askFirstButton} onPress={handleAskNewQuestion}>
+                <Text style={styles.askFirstButtonText}>Be the first to ask a question!</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </Animated.View>
 
         {/* Quick Actions */}
@@ -471,8 +667,10 @@ export default function AnonymousQuestionsScreen() {
               <Text style={styles.modalCloseButton}>Cancel</Text>
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Ask a Question</Text>
-            <TouchableOpacity onPress={handleSubmitQuestion}>
-              <Text style={styles.modalSubmitButton}>Submit</Text>
+            <TouchableOpacity onPress={handleSubmitQuestion} disabled={submitting}>
+              <Text style={[styles.modalSubmitButton, submitting && styles.modalSubmitButtonDisabled]}>
+                {submitting ? 'Submitting...' : 'Submit'}
+              </Text>
             </TouchableOpacity>
           </View>
           
@@ -518,7 +716,7 @@ export default function AnonymousQuestionsScreen() {
                     { borderColor: level.color },
                     selectedUrgency === level.value && { backgroundColor: level.color }
                   ]}
-                  onPress={() => setSelectedUrgency(level.value as 'low' | 'medium' | 'high')}
+                  onPress={() => setSelectedUrgency(level.value as any)}
                 >
                   <Text style={[
                     styles.urgencyButtonText,
@@ -530,7 +728,48 @@ export default function AnonymousQuestionsScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+            
+            <Text style={styles.urgencyDescription}>
+              {urgencyLevels.find(l => l.value === selectedUrgency)?.description}
+            </Text>
           </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Search Modal */}
+      <Modal
+        visible={showSearchModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSearchModal(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowSearchModal(false)}>
+              <Text style={styles.modalCloseButton}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Search Questions</Text>
+            <TouchableOpacity onPress={handleSearchQuestions} disabled={!searchQuery.trim()}>
+              <Text style={[styles.modalSubmitButton, !searchQuery.trim() && styles.modalSubmitButtonDisabled]}>
+                Search
+              </Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.modalContent}>
+            <Text style={styles.modalLabel}>Search for questions:</Text>
+            <TextInput
+              style={styles.modalTextInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Enter keywords to search..."
+              autoFocus
+            />
+            
+            <Text style={styles.searchHint}>
+              Search by keywords, categories, or topics. All searches are completely anonymous.
+            </Text>
+          </View>
         </View>
       </Modal>
     </View>
@@ -933,5 +1172,99 @@ const styles = StyleSheet.create({
   urgencyButtonText: {
     fontSize: Typography.sizes.base,
     fontFamily: Typography.bodySemiBold,
+  },
+  urgencyDescription: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  modalSubmitButtonDisabled: {
+    opacity: 0.5,
+  },
+  // Category Chips
+  categoryScroll: {
+    marginBottom: 8,
+  },
+  categoryChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+    backgroundColor: Colors.background,
+    marginRight: 8,
+  },
+  categoryChipSelected: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  categoryChipText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.textPrimary,
+  },
+  categoryChipTextSelected: {
+    color: Colors.background,
+  },
+  // Section Header
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  clearFilterButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: Colors.primaryLight,
+  },
+  clearFilterText: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.bodyMedium,
+    color: Colors.primary,
+  },
+  // Loading and Empty States
+  loadingContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+  },
+  noQuestionsContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  noQuestionsText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  askFirstButton: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  askFirstButtonText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.background,
+  },
+  // Search Modal
+  searchHint: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    marginTop: 16,
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

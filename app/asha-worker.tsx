@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Switch, Alert, TextInput, Modal } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import Animated, {
@@ -14,6 +14,9 @@ import Animated, {
 import { Svg, Path, Circle, G } from 'react-native-svg';
 
 import { Colors, Typography } from '../constants/Colors';
+import { ASHAWorkerService, ASHAWorkerProfile } from '../lib/ashaWorkerService';
+import { useAuth } from '../contexts/AuthContext';
+import VoiceRecorder from '../components/VoiceRecorder';
 
 const { width } = Dimensions.get('window');
 
@@ -242,12 +245,18 @@ const SettingItem = ({ title, description, value, onValueChange, delay }: Settin
 
 export default function ASHAWorkerScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const [ashaWorkerProfile, setAshaWorkerProfile] = useState<ASHAWorkerProfile | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [smsEnabled, setSmsEnabled] = useState(true);
   const [languageHindi, setLanguageHindi] = useState(false);
   const [familyNotifications, setFamilyNotifications] = useState(true);
   const [locationSharing, setLocationSharing] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
+  const [showHomeVisitModal, setShowHomeVisitModal] = useState(false);
+  const [homeVisitReason, setHomeVisitReason] = useState('');
+  const [monitoringData, setMonitoringData] = useState<any>(null);
 
   // Animation values
   const headerOpacity = useSharedValue(0);
@@ -257,63 +266,234 @@ export default function ASHAWorkerScreen() {
   const profileTranslateY = useSharedValue(30);
 
   useEffect(() => {
-    // Header animation
-    headerOpacity.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.quad) });
-    headerTranslateY.value = withTiming(0, { duration: 500, easing: Easing.out(Easing.quad) });
+    loadASHAWorkerData();
+    loadSettings();
+    loadMonitoringData();
+  }, [user]);
 
-    // Profile animation
-    profileOpacity.value = withDelay(
-      300,
-      withTiming(1, { duration: 600, easing: Easing.out(Easing.quad) })
-    );
-    profileTranslateY.value = withDelay(
-      300,
-      withTiming(0, { duration: 600, easing: Easing.out(Easing.quad) })
-    );
+  useEffect(() => {
+    if (ashaWorkerProfile) {
+      // Header animation
+      headerOpacity.value = withTiming(1, { duration: 500, easing: Easing.out(Easing.quad) });
+      headerTranslateY.value = withTiming(0, { duration: 500, easing: Easing.out(Easing.quad) });
 
-    // Status pulse animation
-    if (isOnline) {
-      statusPulse.value = withRepeat(
-        withSequence(
-          withTiming(1.05, { duration: 1000, easing: Easing.inOut(Easing.quad) }),
-          withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.quad) })
-        ),
-        -1,
-        false
+      // Profile animation
+      profileOpacity.value = withDelay(
+        300,
+        withTiming(1, { duration: 600, easing: Easing.out(Easing.quad) })
       );
-    }
-  }, [isOnline]);
+      profileTranslateY.value = withDelay(
+        300,
+        withTiming(0, { duration: 600, easing: Easing.out(Easing.quad) })
+      );
 
-  const handleVoiceCall = () => {
-    console.log('Voice call initiated');
+      // Status pulse animation
+      if (ashaWorkerProfile.isOnline) {
+        statusPulse.value = withRepeat(
+          withSequence(
+            withTiming(1.05, { duration: 1000, easing: Easing.inOut(Easing.quad) }),
+            withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.quad) })
+          ),
+          -1,
+          false
+        );
+      }
+    }
+  }, [ashaWorkerProfile]);
+
+  const loadASHAWorkerData = async () => {
+    try {
+      const profile = await ASHAWorkerService.getASHAWorkerProfile();
+      setAshaWorkerProfile(profile);
+      setIsOnline(profile.isOnline);
+    } catch (error) {
+      console.error('Error loading ASHA worker data:', error);
+    }
   };
 
-  const handleVideoCall = () => {
-    console.log('Video call initiated');
+  const loadSettings = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const settings = await ASHAWorkerService.getSettings(user.id);
+      if (settings) {
+        setVoiceEnabled(settings.voice_enabled);
+        setSmsEnabled(settings.sms_enabled);
+        setLanguageHindi(settings.language_hindi);
+        setFamilyNotifications(settings.family_notifications);
+        setLocationSharing(settings.location_sharing);
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  };
+
+  const loadMonitoringData = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const data = await ASHAWorkerService.getRealTimeMonitoringData(user.id);
+      setMonitoringData(data);
+    } catch (error) {
+      console.error('Error loading monitoring data:', error);
+    }
+  };
+
+  const saveSettings = async () => {
+    if (!user?.id) return;
+    
+    try {
+      await ASHAWorkerService.updateSettings(user.id, {
+        voice_enabled: voiceEnabled,
+        sms_enabled: smsEnabled,
+        language_hindi: languageHindi,
+        family_notifications: familyNotifications,
+        location_sharing: locationSharing
+      });
+    } catch (error) {
+      console.error('Error saving settings:', error);
+    }
+  };
+
+  const handleVoiceCall = async () => {
+    if (!ashaWorkerProfile || !user?.id) return;
+    
+    try {
+      const success = await ASHAWorkerService.initiateVoiceCall(ashaWorkerProfile.phone);
+      if (success) {
+        Alert.alert('Call Initiated', `Calling ${ashaWorkerProfile.name}...`);
+      }
+    } catch (error) {
+      console.error('Error making voice call:', error);
+    }
+  };
+
+  const handleVideoCall = async () => {
+    if (!ashaWorkerProfile || !user?.id) return;
+    
+    try {
+      const success = await ASHAWorkerService.initiateVideoCall(ashaWorkerProfile.phone);
+      if (success) {
+        Alert.alert('Video Call Initiated', `Starting video call with ${ashaWorkerProfile.name}...`);
+      }
+    } catch (error) {
+      console.error('Error making video call:', error);
+    }
   };
 
   const handleVoiceMessage = () => {
-    console.log('Voice message sent');
+    setIsRecording(true);
   };
 
-  const handleShareLocation = () => {
-    console.log('Location shared');
+  const handleVoiceTranscript = async (text: string) => {
+    if (!user?.id || !ashaWorkerProfile) return;
+    
+    try {
+      const voiceMessage = await ASHAWorkerService.recordVoiceMessage(user.id, ashaWorkerProfile.id);
+      if (voiceMessage) {
+        Alert.alert('Voice Message Sent', 'Your voice message has been sent to your ASHA worker.');
+      }
+    } catch (error) {
+      console.error('Error sending voice message:', error);
+      Alert.alert('Error', 'Failed to send voice message');
+    } finally {
+      setIsRecording(false);
+    }
   };
 
-  const handleEmergencyCall = () => {
-    console.log('Emergency call initiated');
+  const handleShareLocation = async () => {
+    if (!user?.id || !ashaWorkerProfile) return;
+    
+    try {
+      const success = await ASHAWorkerService.shareLocation(user.id, ashaWorkerProfile.id);
+      if (success) {
+        // Refresh monitoring data
+        await loadMonitoringData();
+      }
+    } catch (error) {
+      console.error('Error sharing location:', error);
+    }
   };
 
-  const handleShareMedicalSummary = () => {
-    console.log('Medical summary shared');
+  const handleEmergencyCall = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const success = await ASHAWorkerService.makeEmergencyCall(user.id);
+      if (!success) {
+        Alert.alert('Emergency Call', 'No emergency contact found. Please add an emergency contact in your profile.');
+      }
+    } catch (error) {
+      console.error('Error making emergency call:', error);
+    }
+  };
+
+  const handleShareMedicalSummary = async () => {
+    if (!user?.id || !ashaWorkerProfile) return;
+    
+    try {
+      const success = await ASHAWorkerService.shareMedicalSummary(user.id, ashaWorkerProfile.id);
+      if (success) {
+        Alert.alert('Medical Summary Shared', 'Your medical summary has been shared with your ASHA worker.');
+      }
+    } catch (error) {
+      console.error('Error sharing medical summary:', error);
+    }
   };
 
   const handleRequestHomeVisit = () => {
-    console.log('Home visit requested');
+    setShowHomeVisitModal(true);
+  };
+
+  const handleSubmitHomeVisitRequest = async () => {
+    if (!user?.id || !ashaWorkerProfile || !homeVisitReason.trim()) {
+      Alert.alert('Error', 'Please provide a reason for the home visit request.');
+      return;
+    }
+    
+    try {
+      const homeVisitRequest = await ASHAWorkerService.requestHomeVisit(
+        user.id, 
+        ashaWorkerProfile.id, 
+        homeVisitReason
+      );
+      
+      if (homeVisitRequest) {
+        setShowHomeVisitModal(false);
+        setHomeVisitReason('');
+      }
+    } catch (error) {
+      console.error('Error requesting home visit:', error);
+    }
   };
 
   const handleBackToDashboard = () => {
     router.back();
+  };
+
+  const handleSettingChange = async (setting: string, value: boolean) => {
+    switch (setting) {
+      case 'voice':
+        setVoiceEnabled(value);
+        break;
+      case 'sms':
+        setSmsEnabled(value);
+        break;
+      case 'hindi':
+        setLanguageHindi(value);
+        break;
+      case 'family':
+        setFamilyNotifications(value);
+        break;
+      case 'location':
+        setLocationSharing(value);
+        break;
+    }
+    
+    // Save settings after a short delay to avoid too many API calls
+    setTimeout(() => {
+      saveSettings();
+    }, 500);
   };
 
   const animatedHeaderStyle = useAnimatedStyle(() => ({
@@ -344,11 +524,11 @@ export default function ASHAWorkerScreen() {
   ];
 
   const settings = [
-    { title: 'Voice Messages', description: 'Receive voice messages from ASHA worker', value: voiceEnabled, onValueChange: setVoiceEnabled, delay: 2600 },
-    { title: 'SMS Notifications', description: 'Get SMS updates and alerts', value: smsEnabled, onValueChange: setSmsEnabled, delay: 2800 },
-    { title: 'Hindi Language', description: 'Use Hindi for communication', value: languageHindi, onValueChange: setLanguageHindi, delay: 3000 },
-    { title: 'Family Notifications', description: 'Notify family members of updates', value: familyNotifications, onValueChange: setFamilyNotifications, delay: 3200 },
-    { title: 'Location Sharing', description: 'Share location for home visits', value: locationSharing, onValueChange: setLocationSharing, delay: 3400 },
+    { title: 'Voice Messages', description: 'Receive voice messages from ASHA worker', value: voiceEnabled, onValueChange: (value: boolean) => handleSettingChange('voice', value), delay: 2600 },
+    { title: 'SMS Notifications', description: 'Get SMS updates and alerts', value: smsEnabled, onValueChange: (value: boolean) => handleSettingChange('sms', value), delay: 2800 },
+    { title: 'Hindi Language', description: 'Use Hindi for communication', value: languageHindi, onValueChange: (value: boolean) => handleSettingChange('hindi', value), delay: 3000 },
+    { title: 'Family Notifications', description: 'Notify family members of updates', value: familyNotifications, onValueChange: (value: boolean) => handleSettingChange('family', value), delay: 3200 },
+    { title: 'Location Sharing', description: 'Share location for home visits', value: locationSharing, onValueChange: (value: boolean) => handleSettingChange('location', value), delay: 3400 },
   ];
 
   return (
@@ -366,42 +546,52 @@ export default function ASHAWorkerScreen() {
         </Animated.View>
 
         {/* ASHA Worker Profile */}
-        <Animated.View style={[styles.profileCard, animatedProfileStyle]}>
-          <View style={styles.profileHeader}>
-            <View style={styles.avatarContainer}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>PS</Text>
+        {ashaWorkerProfile && (
+          <Animated.View style={[styles.profileCard, animatedProfileStyle]}>
+            <View style={styles.profileHeader}>
+              <View style={styles.avatarContainer}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>
+                    {ashaWorkerProfile.name.split(' ').map(n => n[0]).join('')}
+                  </Text>
+                </View>
+                <Animated.View style={[styles.statusIndicator, animatedStatusStyle]}>
+                  <View style={[styles.statusDot, { backgroundColor: ashaWorkerProfile.isOnline ? Colors.primary : Colors.textMuted }]} />
+                </Animated.View>
               </View>
-              <Animated.View style={[styles.statusIndicator, animatedStatusStyle]}>
-                <View style={[styles.statusDot, { backgroundColor: isOnline ? Colors.primary : Colors.textMuted }]} />
-              </Animated.View>
-            </View>
-            <View style={styles.profileInfo}>
-              <Text style={styles.workerName}>Priya Sharma - ASHA Worker</Text>
-              <Text style={styles.workerStatus}>
-                {isOnline ? 'Online - Available for calls' : 'Offline'}
-              </Text>
-              <Text style={styles.workerSpecialization}>Postpartum care, C-section recovery</Text>
-              <View style={styles.ratingContainer}>
-                <Text style={styles.ratingText}>4.9/5</Text>
-                <Text style={styles.ratingSubtext}>(127 mothers helped)</Text>
+              <View style={styles.profileInfo}>
+                <Text style={styles.workerName}>{ashaWorkerProfile.name} - ASHA Worker</Text>
+                <Text style={styles.workerStatus}>
+                  {ashaWorkerProfile.isOnline ? 'Online - Available for calls' : 'Offline'}
+                </Text>
+                <Text style={styles.workerSpecialization}>{ashaWorkerProfile.specialization}</Text>
+                <View style={styles.ratingContainer}>
+                  <Text style={styles.ratingText}>{ashaWorkerProfile.rating}/5</Text>
+                  <Text style={styles.ratingSubtext}>({ashaWorkerProfile.patientsHelped} mothers helped)</Text>
+                </View>
+                <Text style={styles.workerExperience}>
+                  {ashaWorkerProfile.experience} years experience • Languages: {ashaWorkerProfile.languages.join(', ')}
+                </Text>
               </View>
             </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
+        )}
 
         {/* Real-time Monitoring */}
         <Animated.View style={[styles.monitoringSection, animatedProfileStyle]}>
           <Text style={styles.sectionTitle}>Real-time Monitoring</Text>
           <View style={styles.monitoringCard}>
             <Text style={styles.monitoringText}>
-              <Text style={styles.monitoringBold}>Your Progress:</Text> Priya can see your recovery timeline and recent check-ins
+              <Text style={styles.monitoringBold}>Your Progress:</Text> {ashaWorkerProfile?.name} can see your recovery timeline and recent check-ins
             </Text>
             <Text style={styles.monitoringText}>
-              <Text style={styles.monitoringBold}>Alerts Shared:</Text> She receives notifications when you need help
+              <Text style={styles.monitoringBold}>Health Metrics:</Text> {monitoringData?.healthMetrics?.length || 0} recent check-ins recorded
             </Text>
             <Text style={styles.monitoringText}>
-              <Text style={styles.monitoringBold}>Medical History:</Text> She has access to your delivery details and current concerns
+              <Text style={styles.monitoringBold}>Voice Check-ins:</Text> {monitoringData?.voiceCheckins?.length || 0} voice messages shared
+            </Text>
+            <Text style={styles.monitoringText}>
+              <Text style={styles.monitoringBold}>Last Updated:</Text> {monitoringData?.lastUpdated ? new Date(monitoringData.lastUpdated).toLocaleString() : 'Never'}
             </Text>
           </View>
         </Animated.View>
@@ -451,7 +641,64 @@ export default function ASHAWorkerScreen() {
             />
           ))}
         </View>
+
+        {/* Voice Message Recording */}
+        {isRecording && (
+          <View style={styles.voiceRecorderContainer}>
+            <Text style={styles.voiceRecorderTitle}>Recording Voice Message</Text>
+            <VoiceRecorder
+              onTranscript={handleVoiceTranscript}
+              onStart={() => {}}
+              onStop={() => setIsRecording(false)}
+              isListening={isRecording}
+              disabled={false}
+            />
+          </View>
+        )}
       </ScrollView>
+
+      {/* Home Visit Request Modal */}
+      <Modal
+        visible={showHomeVisitModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowHomeVisitModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Request Home Visit</Text>
+            <Text style={styles.modalDescription}>
+              Please provide a reason for the home visit request. Your ASHA worker will confirm the appointment.
+            </Text>
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="Enter reason for home visit..."
+              value={homeVisitReason}
+              onChangeText={setHomeVisitReason}
+              multiline={true}
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowHomeVisitModal(false);
+                  setHomeVisitReason('');
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.submitButton]}
+                onPress={handleSubmitHomeVisitRequest}
+              >
+                <Text style={styles.submitButtonText}>Request Visit</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -709,5 +956,107 @@ const styles = StyleSheet.create({
     fontFamily: Typography.body,
     color: Colors.textMuted,
     lineHeight: Typography.lineHeights.relaxed * Typography.sizes.sm,
+  },
+  workerExperience: {
+    fontSize: Typography.sizes.sm,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    marginTop: 4,
+  },
+  voiceRecorderContainer: {
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    padding: 20,
+    margin: 20,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  voiceRecorderTitle: {
+    fontSize: Typography.sizes.lg,
+    fontFamily: Typography.heading,
+    color: Colors.textPrimary,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: Colors.background,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: Colors.textPrimary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  modalTitle: {
+    fontSize: Typography.sizes.xl,
+    fontFamily: Typography.heading,
+    color: Colors.textPrimary,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalDescription: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textMuted,
+    marginBottom: 20,
+    textAlign: 'center',
+    lineHeight: Typography.lineHeights.relaxed * Typography.sizes.base,
+  },
+  reasonInput: {
+    borderWidth: 1,
+    borderColor: Colors.primaryLight,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.body,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.background,
+    marginBottom: 24,
+    minHeight: 100,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    backgroundColor: Colors.textMuted + '20',
+    borderWidth: 1,
+    borderColor: Colors.textMuted,
+  },
+  submitButton: {
+    backgroundColor: Colors.primary,
+  },
+  cancelButtonText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.textMuted,
+  },
+  submitButtonText: {
+    fontSize: Typography.sizes.base,
+    fontFamily: Typography.bodySemiBold,
+    color: Colors.background,
   },
 });

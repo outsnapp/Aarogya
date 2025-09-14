@@ -28,17 +28,27 @@ export default function SplashScreen() {
   const taglineOpacity = useSharedValue(0);
 
   const navigateToNext = () => {
+    console.log('🚀 Navigation decision:', {
+      hasUser: !!user,
+      userEmail: user?.email,
+      onboardingCompleted,
+      loading
+    });
+
     if (user) {
       // User is logged in, check onboarding status
       if (onboardingCompleted) {
         // User has completed onboarding, go to dashboard
+        console.log('✅ User completed onboarding, going to dashboard');
         router.replace('/dashboard');
       } else {
         // User hasn't completed onboarding, go to onboarding
+        console.log('❌ User needs onboarding, going to onboarding');
         router.replace('/onboarding');
       }
     } else {
       // User is not logged in, go to login
+      console.log('🔐 No user, going to login');
       router.replace('/auth/login');
     }
   };

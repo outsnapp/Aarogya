@@ -413,14 +413,17 @@ export class DashboardService {
       console.log('👤 User profile found:', userProfile);
 
       // Get baby profile
-      const { data: babyProfile, error: babyError } = await supabase
+      const { data: babyProfiles, error: babyError } = await supabase
         .from('baby_profiles')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .order('created_at', { ascending: false }); // Get most recent baby profile
 
+      let babyProfile = null;
       if (babyError && babyError.code !== 'PGRST116') {
         console.error('Error fetching baby profile:', babyError);
+      } else if (babyProfiles && babyProfiles.length > 0) {
+        babyProfile = babyProfiles[0]; // Use the most recent baby profile
       }
 
       console.log('👶 Baby profile found:', babyProfile);
